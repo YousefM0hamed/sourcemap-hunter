@@ -1,0 +1,238 @@
+"use strict";
+
+let activeTabId = null;
+let currentSummary = null;
+
+const countEl = document.getElementById("count");
+const pageUrlEl = document.getElementById("pageUrl");
+const subtitleEl = document.getElementById("subtitle");
+const emptyEl = document.getElementById("empty");
+const listEl = document.getElementById("list");
+const refreshBtn = document.getElementById("refresh");
+const clearBtn = document.getElementById("clear");
+
+function text(value) {
+  return value == null ? "" : String(value);
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) {
+    return "unknown size";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function createElement(tag, className, content) {
+  const el = document.createElement(tag);
+
+  if (className) {
+    el.className = className;
+  }
+
+  if (content !== undefined) {
+    el.textContent = content;
+  }
+
+  return el;
+}
+
+function renderSummary(summary) {
+  currentSummary = summary;
+  countEl.textContent = String(summary.count || 0);
+  pageUrlEl.textContent = summary.pageUrl || "Current tab";
+  subtitleEl.textContent = summary.count
+    ? "Confirmed source maps found"
+    : "No confirmed source maps";
+
+  listEl.innerHTML = "";
+
+  if (!summary.maps || summary.maps.length === 0) {
+    emptyEl.hidden = false;
+    listEl.hidden = true;
+    return;
+  }
+
+  emptyEl.hidden = true;
+  listEl.hidden = false;
+
+  for (const item of summary.maps) {
+    const card = createElement("article", "card");
+
+    const title = createElement("div", "card-title", item.mapUrl);
+    card.appendChild(title);
+
+    const meta = createElement("div", "meta");
+
+    meta.appendChild(
+      createElement("span", "", `version: ${text(item.version)}`),
+    );
+
+    meta.appendChild(
+      createElement(
+        "span",
+        "",
+        `sources: ${item.embeddedSourceCount}/${item.sourceCount}`,
+      ),
+    );
+
+    meta.appendChild(
+      createElement("span", "", `map: ${formatBytes(item.rawMapSize)}`),
+    );
+
+    meta.appendChild(
+      createElement(
+        "span",
+        "",
+        item.hasSourcesContent
+          ? "sourcesContent: yes"
+          : "sourcesContent: missing",
+      ),
+    );
+
+    card.appendChild(meta);
+
+    const methods = createElement(
+      "div",
+      "methods",
+      `detected by: ${(item.discoveredBy || []).join(", ") || "unknown"}`,
+    );
+    card.appendChild(methods);
+
+    const actions = createElement("div", "actions");
+
+    const viewBtn = createElement("button", "primary", "View sources");
+    viewBtn.type = "button";
+    viewBtn.addEventListener("click", () => {
+      const url = browser.runtime.getURL(
+        `viewer/viewer.html?tabId=${encodeURIComponent(activeTabId)}&mapId=${encodeURIComponent(item.id)}`,
+      );
+
+      browser.tabs.create({ url });
+    });
+
+    const downloadBtn = createElement("button", "", "Download ZIP");
+    downloadBtn.type = "button";
+    downloadBtn.disabled = !item.hasSourcesContent;
+    downloadBtn.title = item.hasSourcesContent
+      ? "Download reconstructed sources as a ZIP archive"
+      : "This map does not contain embedded sourcesContent";
+
+    downloadBtn.addEventListener("click", async () => {
+      await downloadMapZip(item.id);
+    });
+
+    actions.appendChild(viewBtn);
+    actions.appendChild(downloadBtn);
+    card.appendChild(actions);
+    listEl.appendChild(card);
+  }
+}
+
+async function getActiveTabId() {
+  const tabs = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  return tabs[0] ? tabs[0].id : null;
+}
+
+async function loadSummary() {
+  activeTabId = await getActiveTabId();
+
+  if (activeTabId == null) {
+    renderSummary({
+      count: 0,
+      pageUrl: "",
+      maps: [],
+    });
+    return;
+  }
+
+  const response = await browser.runtime.sendMessage({
+    type: "getTabSummary",
+    tabId: activeTabId,
+  });
+
+  if (!response || !response.ok) {
+    throw new Error(
+      response && response.error
+        ? response.error
+        : "Unable to read tab summary",
+    );
+  }
+
+  renderSummary(response.data);
+}
+
+async function getFullMap(mapId) {
+  const response = await browser.runtime.sendMessage({
+    type: "getMap",
+    tabId: activeTabId,
+    mapId,
+  });
+
+  if (!response || !response.ok || !response.data) {
+    throw new Error(
+      response && response.error ? response.error : "Source map not found",
+    );
+  }
+
+  return response.data;
+}
+
+async function downloadMapZip(mapId) {
+  try {
+    const record = await getFullMap(mapId);
+    await window.SourceMapHunterZip.downloadMapAsZip(record);
+  } catch (error) {
+    console.error(error);
+    alert(`Download failed: ${error.message}`);
+  }
+}
+
+refreshBtn.addEventListener("click", () => {
+  loadSummary().catch((error) => {
+    console.error(error);
+    subtitleEl.textContent = "Refresh failed";
+  });
+});
+
+clearBtn.addEventListener("click", async () => {
+  if (activeTabId == null) {
+    return;
+  }
+
+  await browser.runtime.sendMessage({
+    type: "clearTab",
+    tabId: activeTabId,
+  });
+
+  await loadSummary();
+});
+
+browser.runtime.onMessage.addListener((message) => {
+  if (!message || message.type !== "sourceMapUpdated") {
+    return;
+  }
+
+  if (message.tabId === activeTabId) {
+    loadSummary().catch(console.error);
+  }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadSummary().catch((error) => {
+    console.error(error);
+    subtitleEl.textContent = "Unable to load scan data";
+  });
+});

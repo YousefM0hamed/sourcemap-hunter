@@ -1,0 +1,245 @@
+:root {
+    color-scheme: light dark;
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #172033;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #374151;
+    --accent: #f43f5e;
+    --accent-2: #38bdf8;
+    --button: #243044;
+    --code-bg: #060914;
+    --string: #a7f3d0;
+    --comment: #94a3b8;
+    --keyword: #93c5fd;
+    --number: #fcd34d;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+header {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+h1 {
+    margin: 0;
+    font-size: 18px;
+}
+
+#mapUrl {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 68vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+button {
+    border: 1px solid var(--border);
+    background: var(--button);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--accent-2);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+main {
+    height: calc(100vh - 72px);
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+}
+
+aside {
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+}
+
+.aside-top {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--accent-2);
+}
+
+#stats {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+#fileList {
+    overflow: auto;
+    padding: 8px;
+}
+
+.file-item {
+    width: 100%;
+    text-align: left;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text);
+    display: block;
+    padding: 8px 9px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.file-item:hover {
+    background: var(--panel-2);
+    border-color: var(--border);
+}
+
+.file-item.active {
+    background: var(--panel-2);
+    border-color: var(--accent-2);
+}
+
+.viewer {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--code-bg);
+}
+
+.filebar {
+    min-height: 48px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    background: var(--panel-2);
+}
+
+#currentPath {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+#currentMeta {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+pre {
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+    flex: 1;
+    font-family:
+        ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+        monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    tab-size: 2;
+}
+
+code {
+    white-space: pre;
+}
+
+.tok-string {
+    color: var(--string);
+}
+
+.tok-comment {
+    color: var(--comment);
+    font-style: italic;
+}
+
+.tok-keyword {
+    color: var(--keyword);
+    font-weight: 600;
+}
+
+.tok-number {
+    color: var(--number);
+}
+
+.empty {
+    color: var(--muted);
+    padding: 16px;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --panel-2: #f1f5f9;
+        --text: #111827;
+        --muted: #64748b;
+        --border: #d1d5db;
+        --button: #f8fafc;
+        --code-bg: #ffffff;
+        --string: #047857;
+        --comment: #64748b;
+        --keyword: #1d4ed8;
+        --number: #b45309;
+    }
+}

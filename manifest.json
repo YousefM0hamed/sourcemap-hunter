@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Source Map Hunter",
+  "version": "1.0.0",
+  "description": "Detect exposed JavaScript source maps during authorized bug bounty testing.",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "webRequestFilterResponse",
+    "storage",
+    "tabs",
+    "downloads"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["background.js"],
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Source Map Hunter",
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/icon.svg"
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "source-map-hunter@example.local",
+      "strict_min_version": "127.0"
+    }
+  }
+}
