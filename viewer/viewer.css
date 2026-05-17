@@ -20,9 +20,14 @@
     box-sizing: border-box;
 }
 
+html,
 body {
     margin: 0;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+}
+
+body {
     overflow: hidden;
     background: var(--bg);
     color: var(--text);
@@ -89,21 +94,25 @@ button.primary {
 
 main {
     height: calc(100vh - 72px);
+    min-height: 0;
     display: grid;
     grid-template-columns: 360px minmax(0, 1fr);
 }
 
 aside {
     min-width: 0;
+    min-height: 0;
     border-right: 1px solid var(--border);
     background: var(--panel);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .aside-top {
     padding: 12px;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 input {
@@ -129,6 +138,7 @@ input:focus {
 }
 
 #fileList {
+    min-height: 0;
     overflow: auto;
     padding: 8px;
 }
@@ -160,9 +170,11 @@ input:focus {
 
 .viewer {
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background: var(--code-bg);
+    overflow: hidden;
 }
 
 .filebar {
@@ -174,6 +186,7 @@ input:focus {
     justify-content: center;
     gap: 3px;
     background: var(--panel-2);
+    flex-shrink: 0;
 }
 
 #currentPath {
@@ -190,8 +203,10 @@ input:focus {
 pre {
     margin: 0;
     padding: 16px;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
     overflow: auto;
-    flex: 1;
     font-family:
         ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
         monospace;
@@ -201,7 +216,9 @@ pre {
 }
 
 code {
+    display: block;
     white-space: pre;
+    min-width: max-content;
 }
 
 .tok-string {
