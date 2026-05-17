@@ -232,9 +232,11 @@ instead of:
 ## Troubleshooting
 
 Q1. Firefox says the folder does not contain a valid manifest
+
 A: Make sure you selected: `sourcemap-hunter/manifest.json` not only the folder, but also confirm the file is not accidentally named: `mainfest.json | manifest.json.txt` or anything other than `manifest.json` anyway :)
 
 Q2: The extension loads but finds nothing
+
 A: Possible reasons:
 1. The target does not expose source maps.
 2. The source maps exist but require authentication.
@@ -246,6 +248,7 @@ A: Possible reasons:
 Refresh the target page after loading the extension.
 
 Q3: A valid source map is detected but no source files appear
+
 A: Some source maps include only source paths and mappings, not embedded source contents.
 For example:
 
@@ -262,6 +265,7 @@ For example:
 Without `sourcesContent`, the extension can confirm the source map but cannot reconstruct the original files directly.
 
 Q4: The browser becomes slower on very large pages
+
 A: The extension inspects JavaScript responses and may fetch guessed `.map` files for each script. Pages with many large bundles can generate extra local processing and network requests. To minimize the impact as much as possible, load the extension when you need it.
 
 # Legal and ethical use
