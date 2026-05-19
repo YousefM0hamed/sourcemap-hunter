@@ -55,6 +55,7 @@ Source maps can expose original frontend source code, routes, comments, internal
 - Viewer page displays reconstructed source files in a clean, readable interface.
 - Basic syntax highlighting for JavaScript-like files.
 - Supports downloading reconstructed sources as a ZIP file.
+- Supports domain filtering.
 - No external dependencies.
 - No framework.
 - No remote telemetry.
