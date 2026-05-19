@@ -29,6 +29,12 @@ Source maps can expose original frontend source code, routes, comments, internal
 
 > Intended for personal use in authorized security testing only.
 
+
+
+https://github.com/user-attachments/assets/b97ed081-66c9-4028-a75e-65332e1a03f1
+
+
+
 ---
 
 ## Features
