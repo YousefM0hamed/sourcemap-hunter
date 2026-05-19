@@ -61,7 +61,7 @@ https://github.com/user-attachments/assets/b97ed081-66c9-4028-a75e-65332e1a03f1
 - Viewer page displays reconstructed source files in a clean, readable interface.
 - Basic syntax highlighting for JavaScript-like files.
 - Supports downloading reconstructed sources as a ZIP file.
-- Supports domain filtering.
+- [v.1.1.0] Supports domain filtering.
 - No external dependencies.
 - No framework.
 - No remote telemetry.
