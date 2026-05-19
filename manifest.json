@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Source Map Hunter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Detect exposed JavaScript source maps during authorized bug bounty testing.",
   "permissions": [
     "webRequest",
