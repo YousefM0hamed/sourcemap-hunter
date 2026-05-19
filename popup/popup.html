@@ -24,6 +24,22 @@
                 </div>
             </section>
 
+            <section class="filters" aria-label="Result filters">
+                <label for="domainFilter">Domain filter</label>
+                <div class="filter-row">
+                    <input
+                        id="domainFilter"
+                        type="search"
+                        placeholder="example.com or cdn.example.com"
+                        autocomplete="off"
+                    />
+                    <button id="clearFilter" type="button" disabled>
+                        Clear
+                    </button>
+                </div>
+                <p id="filterStatus">Showing all domains.</p>
+            </section>
+
             <section id="empty" class="empty">
                 No confirmed JavaScript source maps detected on this tab.
             </section>

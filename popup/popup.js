@@ -10,6 +10,9 @@ const emptyEl = document.getElementById("empty");
 const listEl = document.getElementById("list");
 const refreshBtn = document.getElementById("refresh");
 const clearBtn = document.getElementById("clear");
+const domainFilterEl = document.getElementById("domainFilter");
+const clearFilterBtn = document.getElementById("clearFilter");
+const filterStatusEl = document.getElementById("filterStatus");
 
 function text(value) {
   return value == null ? "" : String(value);
@@ -45,18 +48,99 @@ function createElement(tag, className, content) {
   return el;
 }
 
+function hostnameFromUrl(urlString) {
+  if (/^data:/i.test(text(urlString))) {
+    return "data:";
+  }
+
+  try {
+    return new URL(urlString).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeDomainTerm(term) {
+  try {
+    return new URL(term).hostname.toLowerCase();
+  } catch {
+    return term
+      .replace(/^[a-z][a-z0-9+.-]*:\/\//i, "")
+      .split("/")[0]
+      .split(":")[0]
+      .toLowerCase();
+  }
+}
+
+function domainCandidates(item) {
+  const urls = [item.mapUrl, item.finalUrl, ...(item.scriptUrls || [])];
+  const domains = new Set();
+
+  for (const url of urls) {
+    const domain = hostnameFromUrl(url);
+
+    if (domain) {
+      domains.add(domain);
+    }
+  }
+
+  return Array.from(domains);
+}
+
+function getDomainFilterTerms() {
+  return domainFilterEl.value
+    .trim()
+    .toLowerCase()
+    .split(/[,\s]+/)
+    .map(normalizeDomainTerm)
+    .filter(Boolean);
+}
+
+function matchesDomainFilter(item, terms) {
+  if (terms.length === 0) {
+    return true;
+  }
+
+  const candidates = domainCandidates(item);
+
+  return terms.some((term) =>
+    candidates.some((domain) => domain.includes(term)),
+  );
+}
+
 function renderSummary(summary) {
   currentSummary = summary;
-  countEl.textContent = String(summary.count || 0);
+  const maps = summary.maps || [];
+  const terms = getDomainFilterTerms();
+  const visibleMaps = maps.filter((item) => matchesDomainFilter(item, terms));
+  const totalCount = summary.count || maps.length;
+  const filterActive = terms.length > 0;
+
+  countEl.textContent = String(filterActive ? visibleMaps.length : totalCount);
   pageUrlEl.textContent = summary.pageUrl || "Current tab";
-  subtitleEl.textContent = summary.count
-    ? "Confirmed source maps found"
+  subtitleEl.textContent = totalCount
+    ? filterActive
+      ? `Showing ${visibleMaps.length} of ${totalCount} confirmed source maps`
+      : "Confirmed source maps found"
     : "No confirmed source maps";
+  filterStatusEl.textContent = filterActive
+    ? `Filtering by: ${terms.join(", ")}`
+    : "Showing all domains.";
+  clearFilterBtn.disabled = !filterActive;
 
   listEl.innerHTML = "";
 
-  if (!summary.maps || summary.maps.length === 0) {
+  if (maps.length === 0) {
     emptyEl.hidden = false;
+    emptyEl.textContent =
+      "No confirmed JavaScript source maps detected on this tab.";
+    listEl.hidden = true;
+    return;
+  }
+
+  if (visibleMaps.length === 0) {
+    emptyEl.hidden = false;
+    emptyEl.textContent = "No source maps match this domain filter.";
     listEl.hidden = true;
     return;
   }
@@ -64,7 +148,7 @@ function renderSummary(summary) {
   emptyEl.hidden = true;
   listEl.hidden = false;
 
-  for (const item of summary.maps) {
+  for (const item of visibleMaps) {
     const card = createElement("article", "card");
 
     const title = createElement("div", "card-title", item.mapUrl);
@@ -205,6 +289,22 @@ refreshBtn.addEventListener("click", () => {
     console.error(error);
     subtitleEl.textContent = "Refresh failed";
   });
+});
+
+domainFilterEl.addEventListener("input", () => {
+  if (currentSummary) {
+    renderSummary(currentSummary);
+  }
+});
+
+clearFilterBtn.addEventListener("click", () => {
+  domainFilterEl.value = "";
+
+  if (currentSummary) {
+    renderSummary(currentSummary);
+  }
+
+  domainFilterEl.focus();
 });
 
 clearBtn.addEventListener("click", async () => {
