@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Source Map Hunter Code Search</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="search.css" />
+    </head>
+    <body>
+        <header>
+            <div>
+                <h1>Code search</h1>
+                <p id="mapUrl">Loading source map...</p>
+            </div>
+        </header>
+
+        <main>
+            <section class="search-panel">
+                <div class="search-controls">
+                    <input
+                        id="searchInput"
+                        type="search"
+                        placeholder="Search all reconstructed files, e.g. innerHTML or location.hash"
+                        autocomplete="off"
+                    />
+                    <label class="checkbox-label">
+                        <input id="regexToggle" type="checkbox" />
+                        Regex
+                    </label>
+                    <button id="runSearch" type="button" class="primary">
+                        Search
+                    </button>
+                </div>
+                <div id="status" class="status">
+                    Search runs across all recovered files in this source map.
+                </div>
+            </section>
+
+            <section id="results" class="results"></section>
+        </main>
+
+        <script src="../shared/codeSearch.js"></script>
+        <script src="search.js"></script>
+    </body>
+</html>

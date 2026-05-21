@@ -25,6 +25,12 @@ function getParams() {
   if (!Number.isFinite(tabId) || !mapId) {
     throw new Error("Missing tabId or mapId");
   }
+
+  if (params.get("mode") === "search") {
+    location.replace(browser.runtime.getURL(
+      `search/search.html?tabId=${encodeURIComponent(tabId)}&mapId=${encodeURIComponent(mapId)}`,
+    ));
+  }
 }
 
 function formatBytes(bytes) {
@@ -47,55 +53,15 @@ function tokenSpan(className, value) {
 
 function highlightJsLike(source) {
   const keywords = new Set([
-    "async",
-    "await",
-    "break",
-    "case",
-    "catch",
-    "class",
-    "const",
-    "continue",
-    "debugger",
-    "default",
-    "delete",
-    "do",
-    "else",
-    "export",
-    "extends",
-    "false",
-    "finally",
-    "for",
-    "from",
-    "function",
-    "get",
-    "if",
-    "import",
-    "in",
-    "instanceof",
-    "let",
-    "new",
-    "null",
-    "of",
-    "return",
-    "set",
-    "static",
-    "super",
-    "switch",
-    "this",
-    "throw",
-    "true",
-    "try",
-    "typeof",
-    "undefined",
-    "var",
-    "void",
-    "while",
-    "with",
-    "yield",
+    "async", "await", "break", "case", "catch", "class", "const", "continue",
+    "debugger", "default", "delete", "do", "else", "export", "extends",
+    "false", "finally", "for", "from", "function", "get", "if", "import",
+    "in", "instanceof", "let", "new", "null", "of", "return", "set", "static",
+    "super", "switch", "this", "throw", "true", "try", "typeof", "undefined",
+    "var", "void", "while", "with", "yield",
   ]);
 
-  const regex =
-    /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
+  const regex = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
 
   let output = "";
   let cursor = 0;
@@ -103,16 +69,11 @@ function highlightJsLike(source) {
 
   while ((match = regex.exec(source)) !== null) {
     const token = match[0];
-
     output += escapeHtml(source.slice(cursor, match.index));
 
     if (token.startsWith("//") || token.startsWith("/*")) {
       output += tokenSpan("tok-comment", token);
-    } else if (
-      token.startsWith('"') ||
-      token.startsWith("'") ||
-      token.startsWith("`")
-    ) {
+    } else if (token.startsWith('"') || token.startsWith("'") || token.startsWith("`")) {
       output += tokenSpan("tok-string", token);
     } else if (/^\d/.test(token)) {
       output += tokenSpan("tok-number", token);
@@ -141,9 +102,7 @@ function highlightJson(source) {
 
 function highlightSource(source, language) {
   if (["javascript", "typescript", "jsx", "json"].includes(language)) {
-    return language === "json"
-      ? highlightJson(source)
-      : highlightJsLike(source);
+    return language === "json" ? highlightJson(source) : highlightJsLike(source);
   }
 
   return escapeHtml(source);
@@ -196,8 +155,8 @@ function selectSource(index) {
   selectedIndex = index;
   currentPathEl.textContent = source.path;
   currentMetaEl.textContent = `${source.language} · ${formatBytes(source.size)}`;
-
   codeEl.innerHTML = `<code>${highlightSource(source.content || "", source.language)}</code>`;
+  downloadCurrentBtn.disabled = false;
 
   renderFileList();
 }
@@ -210,9 +169,7 @@ async function loadRecord() {
   });
 
   if (!response || !response.ok || !response.data) {
-    throw new Error(
-      response && response.error ? response.error : "Source map not found",
-    );
+    throw new Error(response && response.error ? response.error : "Source map not found");
   }
 
   record = response.data;
@@ -224,8 +181,7 @@ async function loadRecord() {
   if (sources.length === 0) {
     currentPathEl.textContent = "No embedded sourcesContent";
     currentMetaEl.textContent = "";
-    codeEl.innerHTML =
-      "<code>This source map is valid, but it does not contain embedded sourcesContent.</code>";
+    codeEl.innerHTML = "<code>This source map is valid, but it does not contain embedded sourcesContent.</code>";
     downloadCurrentBtn.disabled = true;
     downloadZipBtn.disabled = false;
   } else {
@@ -242,10 +198,7 @@ async function downloadCurrentFile() {
     return;
   }
 
-  const safePath = window.SourceMapHunterZip.sanitizePath(
-    source.path,
-    `source-${source.index + 1}.js`,
-  );
+  const safePath = window.SourceMapHunterZip.sanitizePath(source.path, `source-${source.index + 1}.js`);
   const filename = safePath.split("/").pop() || "source.js";
 
   const blob = new Blob([source.content || ""], {

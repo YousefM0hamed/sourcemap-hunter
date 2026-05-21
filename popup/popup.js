@@ -13,6 +13,30 @@ const clearBtn = document.getElementById("clear");
 const domainFilterEl = document.getElementById("domainFilter");
 const clearFilterBtn = document.getElementById("clearFilter");
 const filterStatusEl = document.getElementById("filterStatus");
+const DOMAIN_FILTER_STORAGE_KEY = "popupDomainFilter";
+
+async function restoreDomainFilter() {
+  try {
+    const data = await browser.storage.local.get(DOMAIN_FILTER_STORAGE_KEY);
+    const savedValue = data[DOMAIN_FILTER_STORAGE_KEY];
+
+    if (typeof savedValue === "string") {
+      domainFilterEl.value = savedValue;
+    }
+  } catch (error) {
+    console.error("Unable to restore domain filter:", error);
+  }
+}
+
+async function saveDomainFilter() {
+  try {
+    await browser.storage.local.set({
+      [DOMAIN_FILTER_STORAGE_KEY]: domainFilterEl.value,
+    });
+  } catch (error) {
+    console.error("Unable to save domain filter:", error);
+  }
+}
 
 function text(value) {
   return value == null ? "" : String(value);
@@ -203,6 +227,20 @@ function renderSummary(summary) {
       browser.tabs.create({ url });
     });
 
+    const searchBtn = createElement("button", "", "Code search");
+    searchBtn.type = "button";
+    searchBtn.disabled = !item.hasSourcesContent;
+    searchBtn.title = item.hasSourcesContent
+      ? "Search across all reconstructed source files"
+      : "This map does not contain embedded sourcesContent";
+    searchBtn.addEventListener("click", () => {
+      const url = browser.runtime.getURL(
+        `search/search.html?tabId=${encodeURIComponent(activeTabId)}&mapId=${encodeURIComponent(item.id)}`,
+      );
+
+      browser.tabs.create({ url });
+    });
+
     const downloadBtn = createElement("button", "", "Download ZIP");
     downloadBtn.type = "button";
     downloadBtn.disabled = !item.hasSourcesContent;
@@ -215,6 +253,7 @@ function renderSummary(summary) {
     });
 
     actions.appendChild(viewBtn);
+    actions.appendChild(searchBtn);
     actions.appendChild(downloadBtn);
     card.appendChild(actions);
     listEl.appendChild(card);
@@ -276,8 +315,17 @@ async function getFullMap(mapId) {
 
 async function downloadMapZip(mapId) {
   try {
-    const record = await getFullMap(mapId);
-    await window.SourceMapHunterZip.downloadMapAsZip(record);
+    const response = await browser.runtime.sendMessage({
+      type: "downloadMapZip",
+      tabId: activeTabId,
+      mapId,
+    });
+
+    if (!response || !response.ok) {
+      throw new Error(
+        response && response.error ? response.error : "Download failed",
+      );
+    }
   } catch (error) {
     console.error(error);
     alert(`Download failed: ${error.message}`);
@@ -292,6 +340,8 @@ refreshBtn.addEventListener("click", () => {
 });
 
 domainFilterEl.addEventListener("input", () => {
+  saveDomainFilter();
+
   if (currentSummary) {
     renderSummary(currentSummary);
   }
@@ -299,6 +349,7 @@ domainFilterEl.addEventListener("input", () => {
 
 clearFilterBtn.addEventListener("click", () => {
   domainFilterEl.value = "";
+  saveDomainFilter();
 
   if (currentSummary) {
     renderSummary(currentSummary);
@@ -331,8 +382,10 @@ browser.runtime.onMessage.addListener((message) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadSummary().catch((error) => {
-    console.error(error);
-    subtitleEl.textContent = "Unable to load scan data";
-  });
+  restoreDomainFilter()
+    .then(loadSummary)
+    .catch((error) => {
+      console.error(error);
+      subtitleEl.textContent = "Unable to load scan data";
+    });
 });

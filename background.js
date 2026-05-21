@@ -763,6 +763,24 @@ async function getMapById(tabId, mapId) {
   return null;
 }
 
+
+async function downloadMapZip(tabId, mapId) {
+  const record = await getMapById(tabId, mapId);
+
+  if (!record) {
+    throw new Error("Source map not found");
+  }
+
+  if (
+    !globalThis.SourceMapHunterZip ||
+    typeof globalThis.SourceMapHunterZip.downloadMapAsZip !== "function"
+  ) {
+    throw new Error("ZIP downloader is unavailable");
+  }
+
+  await globalThis.SourceMapHunterZip.downloadMapAsZip(record);
+}
+
 browser.webRequest.onBeforeRequest.addListener(
   onBeforeRequest,
   {
@@ -807,6 +825,15 @@ browser.runtime.onMessage.addListener((message) => {
       data,
       error: data ? "" : "Source map not found",
     }));
+  }
+
+  if (message.type === "downloadMapZip") {
+    return downloadMapZip(message.tabId, message.mapId)
+      .then(() => ({ ok: true }))
+      .catch((error) => ({
+        ok: false,
+        error: error && error.message ? error.message : "Download failed",
+      }));
   }
 
   if (message.type === "clearTab") {

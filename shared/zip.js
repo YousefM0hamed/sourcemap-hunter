@@ -325,7 +325,7 @@
     await downloadBlob(blob, filenameFromMapUrl(record.mapUrl));
   }
 
-  window.SourceMapHunterZip = {
+  globalThis.SourceMapHunterZip = {
     createZipBlob,
     downloadBlob,
     downloadMapAsZip,
