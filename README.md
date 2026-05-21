@@ -87,26 +87,6 @@ The extension has three main UI surfaces:
 
 ---
 
-## Project structure
-
-```text
-sourcemap-hunter/
-├── manifest.json
-├── background.js
-├── icons/
-│   └── icon.svg
-├── popup/
-│   ├── popup.html
-│   ├── popup.css
-│   └── popup.js
-├── shared/
-│   └── zip.js
-└── viewer/
-    ├── viewer.html
-    ├── viewer.css
-    └── viewer.js
-```
-
 ## How detection works
 
 1. Header-based detection
