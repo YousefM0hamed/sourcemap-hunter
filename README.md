@@ -85,6 +85,9 @@ The extension has three main UI surfaces:
 
    Displays embedded files from `sourcesContent` in a readable file-browser layout.
 
+4. **Code search**
+   Search reversed source maps using plain text and regex
+
 ---
 
 ## How detection works
