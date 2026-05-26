@@ -29,8 +29,6 @@ Source maps can expose original frontend source code, routes, comments, internal
 
 > Intended for personal use in authorized security testing only.
 
-demo: https://streamable.com/fb1xvv
-
 ---
 
 ## Features
