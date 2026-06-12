@@ -1,24 +1,17 @@
-```text
-        ________________________________________________________________________________________________________
-       /_______________________________________________________________________________________________________/
-      /_______________________________________________________________________________________________________/
-     |                                                                                                      | |
-     |                       ____   ___  _   _ ____   ____ _____ __  __    _    ____                        | |
-     |                      / ___| / _ \| | | |  _ \ / ___| ____|  \/  |  / \  |  _ \                       | |
-     |                      \___ \| | | | | | | |_) | |   |  _| | |\/| | / _ \ | |_) |                      | |
-     |                       ___) | |_| | |_| |  _ <| |___| |___| |  | |/ ___ \|  __/                       | |
-     |                      |____/ \___/ \___/|_| \_\\____|_____|_|  |_/_/   \_\_|                          | |
-     |                                                                                                      | |
-     |                                 _   _ _   _ _   _ _____ _____ ____                                   | |
-     |                                | | | | | | | \ | |_   _| ____|  _ \                                  | |
-     |                                | |_| | | | |  \| | | | |  _| | |_) |                                 | |
-     |                                |  _  | |_| | |\  | | | | |___|  _ <                                  | |
-     |                                |_| |_|\___/|_| \_| |_| |_____|_| \_\                                 | |
-     |                                                                                                      | |
-     |                                                                                                      | |
-     |                                                                                                      | |
-     |______________________________________________________________________________________________________| |
-     \______________________________________________________________________________________________________\_|
+```text                                                                                 
+            ███████╗ ██████╗ ██╗   ██╗██████╗  ██████╗███████╗███╗   ███╗ █████╗ ██████╗
+            ██╔════╝██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔════╝████╗ ████║██╔══██╗██╔══██╗
+            ███████╗██║   ██║██║   ██║██████╔╝██║     █████╗  ██╔████╔██║███████║██████╔╝
+            ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  ██║╚██╔╝██║██╔══██║██╔═══╝
+              ███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗██║ ╚═╝ ██║██║  ██║██║
+              ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝
+
+                         ██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗
+                        ██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
+                        ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
+                        ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
+                        ██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
+                        ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
 ```
 
 # Source Map Hunter
@@ -28,12 +21,6 @@ A Firefox browser extension for bug bounty hunting that detects exposed JavaScri
 Source maps can expose original frontend source code, routes, comments, internal API paths, feature flags, build structure, and other useful review targets. This extension automates source map discovery while browsing any website.
 
 > Intended for personal use in authorized security testing only.
-
-
-
-https://github.com/user-attachments/assets/b97ed081-66c9-4028-a75e-65332e1a03f1
-
-
 
 ---
 
@@ -62,6 +49,8 @@ https://github.com/user-attachments/assets/b97ed081-66c9-4028-a75e-65332e1a03f1
 - Basic syntax highlighting for JavaScript-like files.
 - Supports downloading reconstructed sources as a ZIP file.
 - [v.1.1.0] Supports domain filtering.
+- [v1.2.0] Supports search using plain text or regex
+- [v1.3] 1) Better code highlighting (same as VS Code!), 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!
 - No external dependencies.
 - No framework.
 - No remote telemetry.
@@ -88,27 +77,10 @@ The extension has three main UI surfaces:
 
    Displays embedded files from `sourcesContent` in a readable file-browser layout.
 
+4. **Code search**
+   Search reversed source maps using plain text and regex
+
 ---
-
-## Project structure
-
-```text
-sourcemap-hunter/
-├── manifest.json
-├── background.js
-├── icons/
-│   └── icon.svg
-├── popup/
-│   ├── popup.html
-│   ├── popup.css
-│   └── popup.js
-├── shared/
-│   └── zip.js
-└── viewer/
-    ├── viewer.html
-    ├── viewer.css
-    └── viewer.js
-```
 
 ## How detection works
 
