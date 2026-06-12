@@ -57,6 +57,7 @@ Source maps can expose original frontend source code, routes, comments, internal
 - Supports downloading reconstructed sources as a ZIP file.
 - [v.1.1.0] Supports domain filtering.
 - [v1.2.0] Supports search using plain text or regex
+- [v1.3] 1) Better code highlighting, 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!
 - No external dependencies.
 - No framework.
 - No remote telemetry.
