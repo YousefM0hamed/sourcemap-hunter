@@ -15,6 +15,11 @@
   False-positive control:
   - A candidate is only confirmed after fetching/parsing it.
   - Confirmed maps must be valid JSON with version, sources, and mappings fields.
+
+  Storage model:
+  - Confirmed maps accumulate into a single, global, persistent collection
+    keyed by map URL. Findings are kept across navigations, tab switches, tab
+    closes, and background restarts until the user explicitly clears them.
 */
 
 const SOURCE_MAP_HEADER_NAMES = new Set([
@@ -28,129 +33,98 @@ const JS_EXTENSIONS = [".js", ".mjs", ".cjs"];
 const MAP_EXTENSIONS = [".js.map", ".mjs.map", ".cjs.map"];
 
 const MAX_SCRIPT_TAIL_CHARS = 160 * 1024;
-const STORAGE_PREFIX = "tabState:";
-const IN_FLIGHT = new Map();
-const STATE_BY_TAB = new Map();
+const STORAGE_KEY = "sourceMapHunter:maps";
+
+// The live, global collection of confirmed source maps (mapUrl -> record).
+const MAPS = new Map();
+let mapsLoaded = false;
+let loadingMaps = null;
+
+// In-memory only (rebuilt each session):
+const IN_FLIGHT = new Map(); // mapUrl -> { discoveredBy:Set, scriptUrls:Set, pageUrl }
+const ATTEMPTED = new Set(); // candidate mapUrls already tried this session
+const PAGE_URL_BY_TAB = new Map(); // tabId -> last main_frame url, for annotation
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function stateKey(tabId) {
-  return `${STORAGE_PREFIX}${tabId}`;
-}
-
-function emptyState(tabId, pageUrl = "") {
+function serializeRecord(record) {
   return {
-    tabId,
-    pageUrl,
-    updatedAt: nowIso(),
-    maps: new Map(),
-    attempts: new Set(),
-    scripts: new Set(),
+    ...record,
+    discoveredBy: Array.from(record.discoveredBy || []),
+    scriptUrls: Array.from(record.scriptUrls || []),
   };
 }
 
-function getState(tabId) {
-  if (!STATE_BY_TAB.has(tabId)) {
-    STATE_BY_TAB.set(tabId, emptyState(tabId));
-  }
-  return STATE_BY_TAB.get(tabId);
-}
-
-function serializeState(state) {
+function hydrateRecord(record) {
   return {
-    tabId: state.tabId,
-    pageUrl: state.pageUrl,
-    updatedAt: state.updatedAt,
-    maps: Array.from(state.maps.values()).map((record) => ({
-      ...record,
-      discoveredBy: Array.from(record.discoveredBy || []),
-      scriptUrls: Array.from(record.scriptUrls || []),
-    })),
+    ...record,
+    discoveredBy: new Set(record.discoveredBy || []),
+    scriptUrls: new Set(record.scriptUrls || []),
   };
 }
 
-function hydrateState(serialized) {
-  const state = emptyState(serialized.tabId, serialized.pageUrl || "");
-  state.updatedAt = serialized.updatedAt || nowIso();
-
-  for (const record of serialized.maps || []) {
-    state.maps.set(record.mapUrl, {
-      ...record,
-      discoveredBy: new Set(record.discoveredBy || []),
-      scriptUrls: new Set(record.scriptUrls || []),
-    });
+async function loadMaps() {
+  if (mapsLoaded) {
+    return MAPS;
   }
 
-  return state;
-}
-
-async function loadState(tabId) {
-  if (STATE_BY_TAB.has(tabId)) {
-    return STATE_BY_TAB.get(tabId);
+  // Dedupe concurrent loads: when the event page wakes up, several requests
+  // can race to rehydrate. They must share one collection so later saves do
+  // not clobber earlier ones.
+  if (loadingMaps) {
+    return loadingMaps;
   }
 
-  const data = await browser.storage.local.get(stateKey(tabId));
-  const serialized = data[stateKey(tabId)];
+  loadingMaps = (async () => {
+    const data = await browser.storage.local.get(STORAGE_KEY);
+    const serialized = data[STORAGE_KEY];
 
-  if (serialized) {
-    const hydrated = hydrateState(serialized);
-    STATE_BY_TAB.set(tabId, hydrated);
-    return hydrated;
-  }
+    if (Array.isArray(serialized)) {
+      for (const record of serialized) {
+        if (record && record.mapUrl) {
+          MAPS.set(record.mapUrl, hydrateRecord(record));
+        }
+      }
+    }
 
-  const state = emptyState(tabId);
-  STATE_BY_TAB.set(tabId, state);
-  return state;
+    mapsLoaded = true;
+    loadingMaps = null;
+    return MAPS;
+  })();
+
+  return loadingMaps;
 }
 
-async function saveState(tabId) {
-  const state = getState(tabId);
-  state.updatedAt = nowIso();
-
-  await browser.storage.local.set({
-    [stateKey(tabId)]: serializeState(state),
-  });
+async function saveMaps() {
+  await loadMaps();
+  const serialized = Array.from(MAPS.values()).map(serializeRecord);
+  await browser.storage.local.set({ [STORAGE_KEY]: serialized });
 }
 
-async function resetTabState(tabId, pageUrl = "") {
-  if (tabId < 0) {
-    return;
-  }
-
-  const state = emptyState(tabId, pageUrl);
-  STATE_BY_TAB.set(tabId, state);
-  await browser.storage.local.set({ [stateKey(tabId)]: serializeState(state) });
-  await updateBadge(tabId);
+async function clearAllMaps() {
+  await loadMaps();
+  MAPS.clear();
+  ATTEMPTED.clear();
+  await browser.storage.local.set({ [STORAGE_KEY]: [] });
+  await updateBadge();
 }
 
-async function removeTabState(tabId) {
-  STATE_BY_TAB.delete(tabId);
-  await browser.storage.local.remove(stateKey(tabId));
-}
-
-async function updateBadge(tabId) {
-  if (tabId < 0) {
-    return;
-  }
-
-  const state = getState(tabId);
-  const count = state.maps.size;
+async function updateBadge() {
+  await loadMaps();
+  const count = MAPS.size;
 
   try {
     await browser.action.setBadgeText({
-      tabId,
       text: count > 0 ? String(count) : "",
     });
 
     await browser.action.setBadgeBackgroundColor({
-      tabId,
       color: "#d90429",
     });
 
     await browser.action.setTitle({
-      tabId,
       title:
         count > 0
           ? `Source Map Hunter: ${count} source map${count === 1 ? "" : "s"} found`
@@ -302,7 +276,7 @@ function stableId(input) {
 
 function stripJsonPrefix(text) {
   let cleaned = String(text || "")
-    .replace(/^\uFEFF/, "")
+    .replace(/^﻿/, "")
     .trimStart();
 
   if (cleaned.startsWith(")]}'")) {
@@ -481,16 +455,20 @@ function mergeIntoExistingRecord(record, discovery) {
   if (discovery.scriptUrl) {
     record.scriptUrls.add(discovery.scriptUrl);
   }
+
+  if (discovery.pageUrl && !record.pageUrl) {
+    record.pageUrl = discovery.pageUrl;
+  }
 }
 
-async function addConfirmedMap(tabId, mapUrl, parsedMap, discovery) {
-  const state = getState(tabId);
-  const existing = state.maps.get(mapUrl);
+async function addConfirmedMap(mapUrl, parsedMap, discovery) {
+  await loadMaps();
+  const existing = MAPS.get(mapUrl);
 
   if (existing) {
     mergeIntoExistingRecord(existing, discovery);
-    await saveState(tabId);
-    await updateBadge(tabId);
+    await saveMaps();
+    await updateBadge();
     return existing;
   }
 
@@ -502,7 +480,7 @@ async function addConfirmedMap(tabId, mapUrl, parsedMap, discovery) {
     mapUrl,
     finalUrl: parsedMap.finalUrl,
     displayUrl: summarizeMapUrl(mapUrl),
-    pageUrl: state.pageUrl || "",
+    pageUrl: discovery.pageUrl || "",
     firstSeen: nowIso(),
     lastSeen: nowIso(),
     version: mapObject.version,
@@ -519,15 +497,14 @@ async function addConfirmedMap(tabId, mapUrl, parsedMap, discovery) {
     sources,
   };
 
-  state.maps.set(mapUrl, record);
-  await saveState(tabId);
-  await updateBadge(tabId);
+  MAPS.set(mapUrl, record);
+  await saveMaps();
+  await updateBadge();
 
   try {
     await browser.runtime.sendMessage({
       type: "sourceMapUpdated",
-      tabId,
-      count: state.maps.size,
+      count: MAPS.size,
     });
   } catch {
     // Popup may not be open.
@@ -536,25 +513,23 @@ async function addConfirmedMap(tabId, mapUrl, parsedMap, discovery) {
   return record;
 }
 
-async function queueMapCandidate(tabId, mapUrl, discovery) {
-  if (tabId < 0 || !mapUrl) {
+async function queueMapCandidate(mapUrl, discovery) {
+  if (!mapUrl) {
     return;
   }
 
-  const state = getState(tabId);
-  const existing = state.maps.get(mapUrl);
+  await loadMaps();
+  const existing = MAPS.get(mapUrl);
 
   if (existing) {
     mergeIntoExistingRecord(existing, discovery);
-    await saveState(tabId);
-    await updateBadge(tabId);
+    await saveMaps();
+    await updateBadge();
     return;
   }
 
-  const key = `${tabId}|${mapUrl}`;
-
-  if (IN_FLIGHT.has(key)) {
-    const pending = IN_FLIGHT.get(key);
+  if (IN_FLIGHT.has(mapUrl)) {
+    const pending = IN_FLIGHT.get(mapUrl);
 
     if (discovery.discoveredBy) {
       pending.discoveredBy.add(discovery.discoveredBy);
@@ -564,58 +539,56 @@ async function queueMapCandidate(tabId, mapUrl, discovery) {
       pending.scriptUrls.add(discovery.scriptUrl);
     }
 
+    if (discovery.pageUrl && !pending.pageUrl) {
+      pending.pageUrl = discovery.pageUrl;
+    }
+
     return;
   }
 
-  IN_FLIGHT.set(key, {
+  // Already fetched (and rejected) this candidate during the session.
+  if (ATTEMPTED.has(mapUrl)) {
+    return;
+  }
+
+  ATTEMPTED.add(mapUrl);
+
+  IN_FLIGHT.set(mapUrl, {
     discoveredBy: new Set(
       discovery.discoveredBy ? [discovery.discoveredBy] : [],
     ),
     scriptUrls: new Set(discovery.scriptUrl ? [discovery.scriptUrl] : []),
+    pageUrl: discovery.pageUrl || "",
   });
 
   try {
     const parsedMap = await fetchAndParseSourceMap(mapUrl);
-    const pending = IN_FLIGHT.get(key);
+    const pending = IN_FLIGHT.get(mapUrl);
 
-    await addConfirmedMap(tabId, mapUrl, parsedMap, {
+    await addConfirmedMap(mapUrl, parsedMap, {
       discoveredBy: Array.from(pending.discoveredBy).join(", "),
       scriptUrl: Array.from(pending.scriptUrls)[0] || discovery.scriptUrl || "",
+      pageUrl: pending.pageUrl || discovery.pageUrl || "",
     });
   } catch (error) {
     // Invalid candidates are intentionally ignored to suppress false positives.
     console.debug("Rejected source map candidate:", mapUrl, error.message);
   } finally {
-    IN_FLIGHT.delete(key);
+    IN_FLIGHT.delete(mapUrl);
   }
 }
 
-function attemptProactiveGuesses(tabId, scriptUrl) {
-  const state = getState(tabId);
-
-  if (state.scripts.has(scriptUrl)) {
-    return;
-  }
-
-  state.scripts.add(scriptUrl);
-
+function attemptProactiveGuesses(scriptUrl, pageUrl) {
   for (const mapUrl of guessMapUrls(scriptUrl)) {
-    const key = `guess:${mapUrl}`;
-
-    if (state.attempts.has(key)) {
-      continue;
-    }
-
-    state.attempts.add(key);
-
-    queueMapCandidate(tabId, mapUrl, {
+    queueMapCandidate(mapUrl, {
       discoveredBy: "proactive guess",
       scriptUrl,
+      pageUrl,
     });
   }
 }
 
-function attachScriptBodyScanner(details) {
+function attachScriptBodyScanner(details, pageUrl) {
   let filter;
 
   try {
@@ -651,9 +624,10 @@ function attachScriptBodyScanner(details) {
           continue;
         }
 
-        queueMapCandidate(details.tabId, mapUrl, {
+        queueMapCandidate(mapUrl, {
           discoveredBy: "sourceMappingURL comment",
           scriptUrl: details.url,
+          pageUrl,
         });
       }
     } catch (error) {
@@ -677,20 +651,25 @@ function attachScriptBodyScanner(details) {
   };
 }
 
-function onBeforeRequest(details) {
+function onMainFrameRequest(details) {
+  if (details.tabId < 0) {
+    return;
+  }
+
+  // Remember the page each tab is on so confirmed maps can be annotated with
+  // where they were seen. Navigation no longer clears findings.
+  PAGE_URL_BY_TAB.set(details.tabId, details.url);
+}
+
+function onScriptRequest(details) {
   if (details.tabId < 0) {
     return {};
   }
 
-  if (details.type === "main_frame") {
-    resetTabState(details.tabId, details.url);
-    return {};
-  }
+  const pageUrl = PAGE_URL_BY_TAB.get(details.tabId) || "";
 
-  if (details.type === "script") {
-    attemptProactiveGuesses(details.tabId, details.url);
-    attachScriptBodyScanner(details);
-  }
+  attemptProactiveGuesses(details.url, pageUrl);
+  attachScriptBodyScanner(details, pageUrl);
 
   return {};
 }
@@ -700,40 +679,156 @@ function onHeadersReceived(details) {
     return;
   }
 
+  const pageUrl = PAGE_URL_BY_TAB.get(details.tabId) || "";
   const header = getSourceMapHeader(details.responseHeaders || []);
 
   if (header) {
     const mapUrl = resolveReference(header.value, details.url);
 
     if (mapUrl) {
-      queueMapCandidate(details.tabId, mapUrl, {
+      queueMapCandidate(mapUrl, {
         discoveredBy: `HTTP ${header.name} header`,
         scriptUrl: details.url,
+        pageUrl,
       });
     }
   }
 
   if (looksLikeSourceMapFile(details.url)) {
-    queueMapCandidate(details.tabId, details.url, {
+    queueMapCandidate(details.url, {
       discoveredBy: "network .js.map response",
       scriptUrl: "",
+      pageUrl,
     });
   }
 }
 
-async function getTabSummary(tabId) {
-  const state = await loadState(tabId);
+function buildLineStarts(text) {
+  const starts = [0];
+
+  for (let i = 0; i < text.length; i += 1) {
+    if (text.charCodeAt(i) === 10) {
+      starts.push(i + 1);
+    }
+  }
+
+  return starts;
+}
+
+function offsetToLine(lineStarts, offset) {
+  let low = 0;
+  let high = lineStarts.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const start = lineStarts[mid];
+    const next = mid + 1 < lineStarts.length ? lineStarts[mid + 1] : Infinity;
+
+    if (offset < start) {
+      high = mid - 1;
+    } else if (offset >= next) {
+      low = mid + 1;
+    } else {
+      return mid + 1;
+    }
+  }
+
+  return 1;
+}
+
+function scanRecordForHardcoded(record) {
+  const rules = globalThis.SourceMapHunterSecretRules || [];
+  const findings = [];
+  const MAX_FINDINGS = 500;
+
+  for (const source of record.sources || []) {
+    if (!source || !source.available || typeof source.content !== "string") {
+      continue;
+    }
+
+    if (findings.length >= MAX_FINDINGS) {
+      break;
+    }
+
+    const content = source.content;
+    let lineStarts = null;
+
+    for (const rule of rules) {
+      if (findings.length >= MAX_FINDINGS) {
+        break;
+      }
+
+      // First match per rule within this file is enough to point at it.
+      let match = null;
+      try {
+        rule.pattern.lastIndex = 0;
+        match = rule.pattern.exec(content);
+      } catch {
+        match = null;
+      }
+
+      if (match) {
+        if (!lineStarts) {
+          lineStarts = buildLineStarts(content);
+        }
+
+        const captured =
+          match[1] && match[1].length >= 8 ? match[1] : match[0];
+
+        findings.push({
+          ruleName: rule.name,
+          sourcePath: source.path || "",
+          line: offsetToLine(lineStarts, match.index),
+          evidence: String(captured).slice(0, 200),
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
+async function scanAllForHardcoded() {
+  await loadMaps();
+
+  let flaggedMaps = 0;
+  let totalFindings = 0;
+
+  for (const record of MAPS.values()) {
+    const findings = scanRecordForHardcoded(record);
+    record.hardcoded = findings;
+    record.hardcodedScannedAt = nowIso();
+
+    if (findings.length > 0) {
+      flaggedMaps += 1;
+      totalFindings += findings.length;
+    }
+  }
+
+  await saveMaps();
 
   return {
-    tabId,
-    pageUrl: state.pageUrl || "",
-    updatedAt: state.updatedAt,
-    count: state.maps.size,
-    maps: Array.from(state.maps.values()).map((record) => ({
+    scannedMaps: MAPS.size,
+    flaggedMaps,
+    totalFindings,
+    rules: (globalThis.SourceMapHunterSecretRules || []).length,
+  };
+}
+
+async function getSummary() {
+  await loadMaps();
+  const records = Array.from(MAPS.values());
+
+  return {
+    pageUrl: "All discovered source maps",
+    updatedAt: nowIso(),
+    count: records.length,
+    maps: records.map((record) => ({
       id: record.id,
       mapUrl: record.mapUrl,
       finalUrl: record.finalUrl,
       displayUrl: record.displayUrl,
+      pageUrl: record.pageUrl,
       firstSeen: record.firstSeen,
       lastSeen: record.lastSeen,
       version: record.version,
@@ -743,14 +838,15 @@ async function getTabSummary(tabId) {
       rawMapSize: record.rawMapSize,
       discoveredBy: Array.from(record.discoveredBy || []),
       scriptUrls: Array.from(record.scriptUrls || []),
+      hardcoded: Array.isArray(record.hardcoded) ? record.hardcoded : [],
     })),
   };
 }
 
-async function getMapById(tabId, mapId) {
-  const state = await loadState(tabId);
+async function getMapById(mapId) {
+  await loadMaps();
 
-  for (const record of state.maps.values()) {
+  for (const record of MAPS.values()) {
     if (record.id === mapId) {
       return {
         ...record,
@@ -763,9 +859,8 @@ async function getMapById(tabId, mapId) {
   return null;
 }
 
-
-async function downloadMapZip(tabId, mapId) {
-  const record = await getMapById(tabId, mapId);
+async function downloadMapZip(mapId) {
+  const record = await getMapById(mapId);
 
   if (!record) {
     throw new Error("Source map not found");
@@ -781,11 +876,20 @@ async function downloadMapZip(tabId, mapId) {
   await globalThis.SourceMapHunterZip.downloadMapAsZip(record);
 }
 
+browser.webRequest.onBeforeRequest.addListener(onMainFrameRequest, {
+  urls: ["<all_urls>"],
+  types: ["main_frame"],
+});
+
+// Scanning script bodies for sourceMappingURL comments uses
+// filterResponseData, which Firefox only permits from a blocking
+// onBeforeRequest listener. Scope the blocking listener to scripts so it
+// is the only request type that pays for it.
 browser.webRequest.onBeforeRequest.addListener(
-  onBeforeRequest,
+  onScriptRequest,
   {
     urls: ["<all_urls>"],
-    types: ["main_frame", "script"],
+    types: ["script"],
   },
   ["blocking"],
 );
@@ -799,7 +903,8 @@ browser.webRequest.onHeadersReceived.addListener(
 );
 
 browser.tabs.onRemoved.addListener((tabId) => {
-  removeTabState(tabId);
+  // Closing a tab forgets only where that tab was; discovered maps are kept.
+  PAGE_URL_BY_TAB.delete(tabId);
 });
 
 browser.runtime.onInstalled.addListener(async () => {
@@ -808,6 +913,8 @@ browser.runtime.onInstalled.addListener(async () => {
   } catch {
     // Ignore.
   }
+
+  await updateBadge();
 });
 
 browser.runtime.onMessage.addListener((message) => {
@@ -815,12 +922,12 @@ browser.runtime.onMessage.addListener((message) => {
     return Promise.resolve({ ok: false, error: "Invalid message" });
   }
 
-  if (message.type === "getTabSummary") {
-    return getTabSummary(message.tabId).then((data) => ({ ok: true, data }));
+  if (message.type === "getSummary" || message.type === "getTabSummary") {
+    return getSummary().then((data) => ({ ok: true, data }));
   }
 
   if (message.type === "getMap") {
-    return getMapById(message.tabId, message.mapId).then((data) => ({
+    return getMapById(message.mapId).then((data) => ({
       ok: Boolean(data),
       data,
       error: data ? "" : "Source map not found",
@@ -828,7 +935,7 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === "downloadMapZip") {
-    return downloadMapZip(message.tabId, message.mapId)
+    return downloadMapZip(message.mapId)
       .then(() => ({ ok: true }))
       .catch((error) => ({
         ok: false,
@@ -836,9 +943,19 @@ browser.runtime.onMessage.addListener((message) => {
       }));
   }
 
-  if (message.type === "clearTab") {
-    return resetTabState(message.tabId, "").then(() => ({ ok: true }));
+  if (message.type === "clearAll" || message.type === "clearTab") {
+    return clearAllMaps().then(() => ({ ok: true }));
+  }
+
+  if (message.type === "scanHardcoded") {
+    return scanAllForHardcoded().then((data) => ({ ok: true, data }));
   }
 
   return Promise.resolve({ ok: false, error: "Unknown message type" });
+});
+
+// Restore the badge count when the background wakes (e.g. after a browser
+// restart, where onInstalled does not fire).
+updateBadge().catch(() => {
+  // Best effort.
 });

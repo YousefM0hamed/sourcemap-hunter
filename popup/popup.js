@@ -13,6 +13,9 @@ const clearBtn = document.getElementById("clear");
 const domainFilterEl = document.getElementById("domainFilter");
 const clearFilterBtn = document.getElementById("clearFilter");
 const filterStatusEl = document.getElementById("filterStatus");
+const scanBtn = document.getElementById("scanHardcoded");
+const scanStatusEl = document.getElementById("scanStatus");
+const SCAN_BUTTON_LABEL = "Search source maps for hardcoded data";
 const DOMAIN_FILTER_STORAGE_KEY = "popupDomainFilter";
 
 async function restoreDomainFilter() {
@@ -157,7 +160,7 @@ function renderSummary(summary) {
   if (maps.length === 0) {
     emptyEl.hidden = false;
     emptyEl.textContent =
-      "No confirmed JavaScript source maps detected on this tab.";
+      "No confirmed JavaScript source maps detected yet.";
     listEl.hidden = true;
     return;
   }
@@ -176,6 +179,21 @@ function renderSummary(summary) {
     const card = createElement("article", "card");
 
     const title = createElement("div", "card-title", item.mapUrl);
+
+    const findings = item.hardcoded || [];
+    if (findings.length > 0) {
+      title.classList.add("flagged");
+
+      const ruleNames = Array.from(new Set(findings.map((f) => f.ruleName)));
+      const note = createElement(
+        "span",
+        "flag-note",
+        "possible hardcoded data",
+      );
+      note.title = `Matched: ${ruleNames.join(", ")}`;
+      title.appendChild(note);
+    }
+
     card.appendChild(title);
 
     const meta = createElement("div", "meta");
@@ -215,13 +233,47 @@ function renderSummary(summary) {
     );
     card.appendChild(methods);
 
+    if (findings.length > 0) {
+      const findingsWrap = createElement("div", "findings");
+      findingsWrap.appendChild(
+        createElement(
+          "div",
+          "findings-heading",
+          `Hardcoded data in ${findings.length} location${findings.length === 1 ? "" : "s"}:`,
+        ),
+      );
+
+      for (const finding of findings) {
+        const row = createElement("div", "finding");
+
+        row.appendChild(
+          createElement("span", "finding-rule", finding.ruleName),
+        );
+
+        const location = finding.line
+          ? `${finding.sourcePath}:${finding.line}`
+          : finding.sourcePath || "unknown file";
+        row.appendChild(createElement("span", "finding-loc", location));
+
+        if (finding.evidence) {
+          row.appendChild(
+            createElement("code", "finding-evidence", finding.evidence),
+          );
+        }
+
+        findingsWrap.appendChild(row);
+      }
+
+      card.appendChild(findingsWrap);
+    }
+
     const actions = createElement("div", "actions");
 
     const viewBtn = createElement("button", "primary", "View sources");
     viewBtn.type = "button";
     viewBtn.addEventListener("click", () => {
       const url = browser.runtime.getURL(
-        `viewer/viewer.html?tabId=${encodeURIComponent(activeTabId)}&mapId=${encodeURIComponent(item.id)}`,
+        `viewer/viewer.html?tabId=${encodeURIComponent(activeTabId ?? 0)}&mapId=${encodeURIComponent(item.id)}`,
       );
 
       browser.tabs.create({ url });
@@ -235,7 +287,7 @@ function renderSummary(summary) {
       : "This map does not contain embedded sourcesContent";
     searchBtn.addEventListener("click", () => {
       const url = browser.runtime.getURL(
-        `search/search.html?tabId=${encodeURIComponent(activeTabId)}&mapId=${encodeURIComponent(item.id)}`,
+        `search/search.html?tabId=${encodeURIComponent(activeTabId ?? 0)}&mapId=${encodeURIComponent(item.id)}`,
       );
 
       browser.tabs.create({ url });
@@ -272,25 +324,15 @@ async function getActiveTabId() {
 async function loadSummary() {
   activeTabId = await getActiveTabId();
 
-  if (activeTabId == null) {
-    renderSummary({
-      count: 0,
-      pageUrl: "",
-      maps: [],
-    });
-    return;
-  }
-
   const response = await browser.runtime.sendMessage({
-    type: "getTabSummary",
-    tabId: activeTabId,
+    type: "getSummary",
   });
 
   if (!response || !response.ok) {
     throw new Error(
       response && response.error
         ? response.error
-        : "Unable to read tab summary",
+        : "Unable to read scan results",
     );
   }
 
@@ -359,13 +401,8 @@ clearFilterBtn.addEventListener("click", () => {
 });
 
 clearBtn.addEventListener("click", async () => {
-  if (activeTabId == null) {
-    return;
-  }
-
   await browser.runtime.sendMessage({
-    type: "clearTab",
-    tabId: activeTabId,
+    type: "clearAll",
   });
 
   await loadSummary();
@@ -376,8 +413,41 @@ browser.runtime.onMessage.addListener((message) => {
     return;
   }
 
-  if (message.tabId === activeTabId) {
-    loadSummary().catch(console.error);
+  loadSummary().catch(console.error);
+});
+
+scanBtn.addEventListener("click", async () => {
+  scanBtn.disabled = true;
+  scanBtn.textContent = "Scanning…";
+  scanStatusEl.hidden = false;
+  scanStatusEl.textContent = "Scanning all discovered source maps…";
+
+  try {
+    const response = await browser.runtime.sendMessage({
+      type: "scanHardcoded",
+    });
+
+    if (!response || !response.ok) {
+      throw new Error(
+        response && response.error ? response.error : "Scan failed",
+      );
+    }
+
+    await loadSummary();
+
+    const data = response.data || {};
+    const scanned = data.scannedMaps || 0;
+
+    scanStatusEl.textContent = data.flaggedMaps
+      ? `Flagged ${data.flaggedMaps} of ${scanned} source map${scanned === 1 ? "" : "s"} (${data.totalFindings} match${data.totalFindings === 1 ? "" : "es"}).`
+      : `No hardcoded data found across ${scanned} source map${scanned === 1 ? "" : "s"}.`;
+  } catch (error) {
+    console.error(error);
+    scanStatusEl.hidden = false;
+    scanStatusEl.textContent = `Scan failed: ${error.message}`;
+  } finally {
+    scanBtn.disabled = false;
+    scanBtn.textContent = SCAN_BUTTON_LABEL;
   }
 });
 

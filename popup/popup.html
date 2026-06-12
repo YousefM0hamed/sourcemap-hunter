@@ -38,17 +38,24 @@
                     </button>
                 </div>
                 <p id="filterStatus">Showing all domains.</p>
+
+                <div class="scan-row">
+                    <button id="scanHardcoded" type="button">
+                        Search source maps for hardcoded data
+                    </button>
+                </div>
+                <p id="scanStatus" class="scan-status" hidden></p>
             </section>
 
             <section id="empty" class="empty">
-                No confirmed JavaScript source maps detected on this tab.
+                No confirmed JavaScript source maps detected yet.
             </section>
 
             <section id="list" class="list" hidden></section>
         </main>
 
         <footer>
-            <button id="clear" type="button">Clear tab results</button>
+            <button id="clear" type="button">Clear all results</button>
         </footer>
 
         <script src="popup.js"></script>

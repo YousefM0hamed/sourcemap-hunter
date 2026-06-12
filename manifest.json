@@ -13,7 +13,7 @@
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "scripts": ["shared/zip.js", "background.js"]
+    "scripts": ["shared/zip.js", "shared/secretRules.js", "background.js"]
   },
   "action": {
     "default_title": "Source Map Hunter",

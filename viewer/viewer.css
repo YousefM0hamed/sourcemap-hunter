@@ -200,43 +200,80 @@ input:focus {
     font-size: 12px;
 }
 
-pre {
-    margin: 0;
-    padding: 16px;
+/* Code host: scroll container that holds Shiki's <pre>. Background matches the
+   GitHub themes so the gutter/empty area stays seamless before and after render. */
+.code-host {
     flex: 1 1 auto;
     min-height: 0;
     min-width: 0;
     overflow: auto;
+    background: #ffffff;
+}
+
+.code-host .shiki {
+    margin: 0;
+    padding: 14px 18px 18px 8px;
+    min-width: max-content;
+    min-height: 100%;
+    background: transparent !important;
     font-family:
         ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
         monospace;
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.6;
     tab-size: 2;
 }
 
-code {
+/* defaultColor:false leaves color to CSS so we can swap light/dark by scheme. */
+.code-host .shiki,
+.code-host .shiki span {
+    color: var(--shiki-light);
+}
+
+/* Line-number gutter via a CSS counter on each Shiki line span. The numbers are
+   generated content (user-select:none), so copying code never grabs them. */
+.code-host .shiki code {
+    counter-reset: smh-line;
     display: block;
     white-space: pre;
-    min-width: max-content;
 }
 
-.tok-string {
-    color: var(--string);
+.code-host .shiki .line::before {
+    counter-increment: smh-line;
+    content: counter(smh-line);
+    display: inline-block;
+    min-width: 2.5em;
+    margin-right: 1.4em;
+    padding-right: 0.7em;
+    text-align: right;
+    color: var(--muted);
+    border-right: 1px solid var(--border);
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-.tok-comment {
-    color: var(--comment);
-    font-style: italic;
+/* Plain fallback (huge files / Shiki unavailable) reuses the same structure so
+   the gutter still works; it just has no token colors. */
+.code-host .shiki-plain {
+    color: var(--text);
 }
 
-.tok-keyword {
-    color: var(--keyword);
-    font-weight: 600;
+.code-message {
+    padding: 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
 }
 
-.tok-number {
-    color: var(--number);
+@media (prefers-color-scheme: dark) {
+    .code-host {
+        background: #0d1117;
+    }
+
+    .code-host .shiki,
+    .code-host .shiki span {
+        color: var(--shiki-dark);
+    }
 }
 
 .empty {

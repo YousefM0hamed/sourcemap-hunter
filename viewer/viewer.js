@@ -44,68 +44,68 @@ function escapeHtml(input) {
   return String(input)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-function tokenSpan(className, value) {
-  return `<span class="${className}">${escapeHtml(value)}</span>`;
-}
+// Files larger than this are shown as plain (still line-numbered) text rather
+// than tokenized, to keep the viewer responsive on huge reconstructed bundles.
+const MAX_HIGHLIGHT_BYTES = 3 * 1024 * 1024;
+const MAX_HIGHLIGHT_LINES = 80000;
 
-function highlightJsLike(source) {
-  const keywords = new Set([
-    "async", "await", "break", "case", "catch", "class", "const", "continue",
-    "debugger", "default", "delete", "do", "else", "export", "extends",
-    "false", "finally", "for", "from", "function", "get", "if", "import",
-    "in", "instanceof", "let", "new", "null", "of", "return", "set", "static",
-    "super", "switch", "this", "throw", "true", "try", "typeof", "undefined",
-    "var", "void", "while", "with", "yield",
-  ]);
+const Shiki =
+  typeof window !== "undefined" ? window.ShikiHighlighter : undefined;
 
-  const regex = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b)/g;
-
-  let output = "";
-  let cursor = 0;
-  let match;
-
-  while ((match = regex.exec(source)) !== null) {
-    const token = match[0];
-    output += escapeHtml(source.slice(cursor, match.index));
-
-    if (token.startsWith("//") || token.startsWith("/*")) {
-      output += tokenSpan("tok-comment", token);
-    } else if (token.startsWith('"') || token.startsWith("'") || token.startsWith("`")) {
-      output += tokenSpan("tok-string", token);
-    } else if (/^\d/.test(token)) {
-      output += tokenSpan("tok-number", token);
-    } else if (keywords.has(token)) {
-      output += tokenSpan("tok-keyword", token);
-    } else {
-      output += escapeHtml(token);
-    }
-
-    cursor = match.index + token.length;
-  }
-
-  output += escapeHtml(source.slice(cursor));
-  return output;
-}
-
-function highlightJson(source) {
+function prettyJson(source) {
   try {
-    source = JSON.stringify(JSON.parse(source), null, 2);
+    return JSON.stringify(JSON.parse(source), null, 2);
   } catch {
-    // Keep original.
+    return source;
   }
-
-  return highlightJsLike(source);
 }
 
-function highlightSource(source, language) {
-  if (["javascript", "typescript", "jsx", "json"].includes(language)) {
-    return language === "json" ? highlightJson(source) : highlightJsLike(source);
+// Build the same <pre class="shiki"><code><span class="line">…</span></code></pre>
+// shape Shiki emits, but with escaped, uncolored text. Used for the large-file
+// fallback and when Shiki is unavailable, so the line-number gutter and layout
+// stay identical to the highlighted path.
+function plainCodeHtml(text) {
+  const body = text
+    .split("\n")
+    .map((line) => `<span class="line">${escapeHtml(line)}</span>`)
+    .join("\n");
+  return `<pre class="shiki shiki-plain" tabindex="0"><code>${body}</code></pre>`;
+}
+
+// Render `content` into the code host as a highlighted, line-numbered block.
+// Returns the resolved language id actually used (for the meta line).
+function renderCode(content, language, path) {
+  let text = String(content == null ? "" : content).replace(/\r\n?/g, "\n");
+  const lang = Shiki ? Shiki.resolveLang(language, path) : null;
+
+  if (lang === "json") {
+    text = prettyJson(text);
   }
 
-  return escapeHtml(source);
+  const lineCount = text.length === 0 ? 1 : text.split("\n").length;
+  const tooBig =
+    text.length > MAX_HIGHLIGHT_BYTES || lineCount > MAX_HIGHLIGHT_LINES;
+
+  let html = null;
+  if (Shiki && lang && !tooBig) {
+    html = Shiki.codeToHtml(text, lang);
+  }
+
+  codeEl.dataset.lang = lang || "plain";
+  codeEl.dataset.highlighted = html ? "1" : "0";
+  codeEl.innerHTML = html || plainCodeHtml(text);
+
+  return lang || (language || "text");
+}
+
+function renderMessage(message) {
+  codeEl.dataset.highlighted = "0";
+  codeEl.innerHTML = `<div class="code-message">${escapeHtml(message)}</div>`;
 }
 
 function renderFileList() {
@@ -154,8 +154,8 @@ function selectSource(index) {
 
   selectedIndex = index;
   currentPathEl.textContent = source.path;
-  currentMetaEl.textContent = `${source.language} · ${formatBytes(source.size)}`;
-  codeEl.innerHTML = `<code>${highlightSource(source.content || "", source.language)}</code>`;
+  const usedLang = renderCode(source.content || "", source.language, source.path);
+  currentMetaEl.textContent = `${usedLang} · ${formatBytes(source.size)}`;
   downloadCurrentBtn.disabled = false;
 
   renderFileList();
@@ -181,7 +181,7 @@ async function loadRecord() {
   if (sources.length === 0) {
     currentPathEl.textContent = "No embedded sourcesContent";
     currentMetaEl.textContent = "";
-    codeEl.innerHTML = "<code>This source map is valid, but it does not contain embedded sourcesContent.</code>";
+    renderMessage("This source map is valid, but it does not contain embedded sourcesContent.");
     downloadCurrentBtn.disabled = true;
     downloadZipBtn.disabled = false;
   } else {
@@ -238,11 +238,11 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRecord().catch((error) => {
       console.error(error);
       mapUrlEl.textContent = error.message;
-      codeEl.innerHTML = `<code>${escapeHtml(error.message)}</code>`;
+      renderMessage(error.message);
     });
   } catch (error) {
     console.error(error);
     mapUrlEl.textContent = error.message;
-    codeEl.innerHTML = `<code>${escapeHtml(error.message)}</code>`;
+    renderMessage(error.message);
   }
 });
