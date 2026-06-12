@@ -57,31 +57,6 @@ Source maps can expose original frontend source code, routes, comments, internal
 
 ---
 
-## Screens
-
-The extension has three main UI surfaces:
-
-1. **Toolbar badge**
-
-   Shows the number of confirmed source maps found on the current tab.
-
-2. **Popup**
-
-   Lists confirmed source maps for the active tab and provides buttons to:
-
-   - View reconstructed sources.
-   - Download reconstructed sources as a ZIP archive.
-   - Clear tab results.
-
-3. **Source viewer**
-
-   Displays embedded files from `sourcesContent` in a readable file-browser layout.
-
-4. **Code search**
-   Search reversed source maps using plain text and regex
-
----
-
 ## How detection works
 
 1. Header-based detection
