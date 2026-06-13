@@ -51,34 +51,10 @@ Source maps can expose original frontend source code, routes, comments, internal
 - [v.1.1.0] Supports domain filtering.
 - [v1.2.0] Supports search using plain text or regex
 - [v1.3] 1) Better code highlighting (same as VS Code!), 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!
+- [v1.3.1] add a switch to enable and disable the extension
 - No external dependencies.
 - No framework.
 - No remote telemetry.
-
----
-
-## Screens
-
-The extension has three main UI surfaces:
-
-1. **Toolbar badge**
-
-   Shows the number of confirmed source maps found on the current tab.
-
-2. **Popup**
-
-   Lists confirmed source maps for the active tab and provides buttons to:
-
-   - View reconstructed sources.
-   - Download reconstructed sources as a ZIP archive.
-   - Clear tab results.
-
-3. **Source viewer**
-
-   Displays embedded files from `sourcesContent` in a readable file-browser layout.
-
-4. **Code search**
-   Search reversed source maps using plain text and regex
 
 ---
 
@@ -245,7 +221,7 @@ Without `sourcesContent`, the extension can confirm the source map but cannot re
 
 Q4: The browser becomes slower on very large pages
 
-A: The extension inspects JavaScript responses and may fetch guessed `.map` files for each script. Pages with many large bundles can generate extra local processing and network requests. To minimize the impact as much as possible, load the extension when you need it.
+A: The extension supports a switch to enable it or disable it to solve this issue, enable it when you need it!
 
 # Legal and ethical use
 
