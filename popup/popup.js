@@ -2,6 +2,7 @@
 
 let activeTabId = null;
 let currentSummary = null;
+let extensionEnabled = true;
 
 const countEl = document.getElementById("count");
 const pageUrlEl = document.getElementById("pageUrl");
@@ -10,6 +11,8 @@ const emptyEl = document.getElementById("empty");
 const listEl = document.getElementById("list");
 const refreshBtn = document.getElementById("refresh");
 const clearBtn = document.getElementById("clear");
+const enabledToggle = document.getElementById("enabledToggle");
+const enabledLabel = document.getElementById("enabledLabel");
 const domainFilterEl = document.getElementById("domainFilter");
 const clearFilterBtn = document.getElementById("clearFilter");
 const filterStatusEl = document.getElementById("filterStatus");
@@ -145,11 +148,13 @@ function renderSummary(summary) {
 
   countEl.textContent = String(filterActive ? visibleMaps.length : totalCount);
   pageUrlEl.textContent = summary.pageUrl || "Current tab";
-  subtitleEl.textContent = totalCount
-    ? filterActive
-      ? `Showing ${visibleMaps.length} of ${totalCount} confirmed source maps`
-      : "Confirmed source maps found"
-    : "No confirmed source maps";
+  subtitleEl.textContent = !extensionEnabled
+    ? "Disabled — not scanning new requests"
+    : totalCount
+      ? filterActive
+        ? `Showing ${visibleMaps.length} of ${totalCount} confirmed source maps`
+        : "Confirmed source maps found"
+      : "No confirmed source maps";
   filterStatusEl.textContent = filterActive
     ? `Filtering by: ${terms.join(", ")}`
     : "Showing all domains.";
@@ -374,6 +379,45 @@ async function downloadMapZip(mapId) {
   }
 }
 
+function applyEnabledState(isEnabled) {
+  extensionEnabled = isEnabled;
+  enabledToggle.checked = isEnabled;
+  enabledLabel.textContent = isEnabled ? "On" : "Off";
+
+  // The switch gates only the background detection/fetching pipeline. Viewing
+  // and locally re-scanning already-collected maps stays available, so the
+  // disabled state is surfaced in the subtitle rather than locking controls.
+  // Re-render so the subtitle reflects the current state immediately.
+  if (currentSummary) {
+    renderSummary(currentSummary);
+  } else if (!isEnabled) {
+    subtitleEl.textContent = "Disabled — not scanning new requests";
+  }
+}
+
+async function loadEnabled() {
+  const response = await browser.runtime.sendMessage({ type: "getEnabled" });
+  const isEnabled = !response || response.enabled !== false;
+  applyEnabledState(isEnabled);
+  return isEnabled;
+}
+
+enabledToggle.addEventListener("change", async () => {
+  const next = enabledToggle.checked;
+  applyEnabledState(next);
+
+  try {
+    await browser.runtime.sendMessage({ type: "setEnabled", enabled: next });
+  } catch (error) {
+    console.error("Unable to update enabled state:", error);
+  }
+
+  if (next) {
+    // Re-enabling: refresh so the subtitle/counts reflect current data.
+    loadSummary().catch(console.error);
+  }
+});
+
 refreshBtn.addEventListener("click", () => {
   loadSummary().catch((error) => {
     console.error(error);
@@ -409,7 +453,16 @@ clearBtn.addEventListener("click", async () => {
 });
 
 browser.runtime.onMessage.addListener((message) => {
-  if (!message || message.type !== "sourceMapUpdated") {
+  if (!message || typeof message !== "object") {
+    return;
+  }
+
+  if (message.type === "enabledChanged") {
+    applyEnabledState(message.enabled !== false);
+    return;
+  }
+
+  if (message.type !== "sourceMapUpdated") {
     return;
   }
 
@@ -452,6 +505,10 @@ scanBtn.addEventListener("click", async () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Load the enabled state first so the switch reflects the real state
+  // immediately, before the slower summary round-trip resolves.
+  loadEnabled().catch(console.error);
+
   restoreDomainFilter()
     .then(loadSummary)
     .catch((error) => {

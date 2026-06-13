@@ -70,6 +70,78 @@ button:hover {
     border-color: var(--accent-2);
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    flex: none;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    transition: background 0.15s ease;
+}
+
+.slider::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition:
+        transform 0.15s ease,
+        background 0.15s ease;
+}
+
+.switch input:checked + .slider {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.switch input:checked + .slider::before {
+    transform: translateX(16px);
+    background: white;
+}
+
+.switch input:focus-visible + .slider {
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.5);
+}
+
+.switch-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 22px;
+}
+
+.switch input:checked ~ .switch-label {
+    color: var(--text);
+}
+
 button.primary {
     background: var(--accent);
     border-color: var(--accent);

@@ -34,6 +34,15 @@ const MAP_EXTENSIONS = [".js.map", ".mjs.map", ".cjs.map"];
 
 const MAX_SCRIPT_TAIL_CHARS = 160 * 1024;
 const STORAGE_KEY = "sourceMapHunter:maps";
+const ENABLED_KEY = "sourceMapHunter:enabled";
+
+// Master on/off switch. When disabled, the extension performs no detection at
+// all: no proactive guesses, no script-body scanning, no header inspection,
+// and no source map fetching. Already-discovered maps remain viewable.
+// Kept as an in-memory cache so the (synchronous) webRequest listeners can
+// gate themselves without awaiting storage on every request. Defaults to on
+// and is reconciled with storage at startup and via storage.onChanged.
+let enabled = true;
 
 // The live, global collection of confirmed source maps (mapUrl -> record).
 const MAPS = new Map();
@@ -111,11 +120,52 @@ async function clearAllMaps() {
   await updateBadge();
 }
 
+async function loadEnabled() {
+  try {
+    const data = await browser.storage.local.get(ENABLED_KEY);
+    if (typeof data[ENABLED_KEY] === "boolean") {
+      enabled = data[ENABLED_KEY];
+    }
+  } catch (error) {
+    console.warn("Unable to load enabled state:", error);
+  }
+
+  return enabled;
+}
+
+async function setEnabled(nextEnabled) {
+  enabled = Boolean(nextEnabled);
+  await browser.storage.local.set({ [ENABLED_KEY]: enabled });
+  await updateBadge();
+
+  try {
+    await browser.runtime.sendMessage({
+      type: "enabledChanged",
+      enabled,
+    });
+  } catch {
+    // Popup may not be open.
+  }
+
+  return enabled;
+}
+
 async function updateBadge() {
   await loadMaps();
   const count = MAPS.size;
 
   try {
+    // When the switch is off, make the disabled state obvious in the toolbar
+    // rather than showing a stale finding count.
+    if (!enabled) {
+      await browser.action.setBadgeText({ text: "off" });
+      await browser.action.setBadgeBackgroundColor({ color: "#6b7280" });
+      await browser.action.setTitle({
+        title: "Source Map Hunter (disabled)",
+      });
+      return;
+    }
+
     await browser.action.setBadgeText({
       text: count > 0 ? String(count) : "",
     });
@@ -652,7 +702,7 @@ function attachScriptBodyScanner(details, pageUrl) {
 }
 
 function onMainFrameRequest(details) {
-  if (details.tabId < 0) {
+  if (!enabled || details.tabId < 0) {
     return;
   }
 
@@ -662,7 +712,7 @@ function onMainFrameRequest(details) {
 }
 
 function onScriptRequest(details) {
-  if (details.tabId < 0) {
+  if (!enabled || details.tabId < 0) {
     return {};
   }
 
@@ -675,7 +725,11 @@ function onScriptRequest(details) {
 }
 
 function onHeadersReceived(details) {
-  if (details.tabId < 0 || !isSuccessfulStatus(details.statusCode || 0)) {
+  if (
+    !enabled ||
+    details.tabId < 0 ||
+    !isSuccessfulStatus(details.statusCode || 0)
+  ) {
     return;
   }
 
@@ -914,12 +968,37 @@ browser.runtime.onInstalled.addListener(async () => {
     // Ignore.
   }
 
+  await loadEnabled();
   await updateBadge();
+});
+
+// Keep the in-memory enabled cache in sync if the value is changed elsewhere
+// (e.g. directly through storage), so the request listeners never act on a
+// stale switch state.
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes[ENABLED_KEY]) {
+    const next = changes[ENABLED_KEY].newValue;
+    if (typeof next === "boolean") {
+      enabled = next;
+      updateBadge().catch(() => {});
+    }
+  }
 });
 
 browser.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") {
     return Promise.resolve({ ok: false, error: "Invalid message" });
+  }
+
+  if (message.type === "getEnabled") {
+    return loadEnabled().then((value) => ({ ok: true, enabled: value }));
+  }
+
+  if (message.type === "setEnabled") {
+    return setEnabled(message.enabled).then((value) => ({
+      ok: true,
+      enabled: value,
+    }));
   }
 
   if (message.type === "getSummary" || message.type === "getTabSummary") {
@@ -954,8 +1033,10 @@ browser.runtime.onMessage.addListener((message) => {
   return Promise.resolve({ ok: false, error: "Unknown message type" });
 });
 
-// Restore the badge count when the background wakes (e.g. after a browser
-// restart, where onInstalled does not fire).
-updateBadge().catch(() => {
-  // Best effort.
-});
+// Restore the enabled state and badge count when the background wakes (e.g.
+// after a browser restart, where onInstalled does not fire).
+loadEnabled()
+  .then(updateBadge)
+  .catch(() => {
+    // Best effort.
+  });

@@ -12,7 +12,17 @@
                 <h1>Source Map Hunter</h1>
                 <p id="subtitle">Scanning current tab</p>
             </div>
-            <button id="refresh" type="button" title="Refresh">↻</button>
+            <div class="header-controls">
+                <label
+                    class="switch"
+                    title="Enable or disable Source Map Hunter"
+                >
+                    <input id="enabledToggle" type="checkbox" checked />
+                    <span class="slider"></span>
+                    <span class="switch-label" id="enabledLabel">On</span>
+                </label>
+                <button id="refresh" type="button" title="Refresh">↻</button>
+            </div>
         </header>
 
         <main>
