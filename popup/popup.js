@@ -3,6 +3,7 @@
 let activeTabId = null;
 let currentSummary = null;
 let extensionEnabled = true;
+let scanInProgress = false;
 
 const countEl = document.getElementById("count");
 const pageUrlEl = document.getElementById("pageUrl");
@@ -20,6 +21,13 @@ const scanBtn = document.getElementById("scanHardcoded");
 const scanStatusEl = document.getElementById("scanStatus");
 const SCAN_BUTTON_LABEL = "Search source maps for hardcoded data";
 const DOMAIN_FILTER_STORAGE_KEY = "popupDomainFilter";
+// Must match ENABLED_KEY in background.js. Stored in storage.SYNC (not local)
+// on purpose: storage.local holds the large reconstructed source-map blob
+// (each record keeps full sourcesContent) and can hit its quota. Once local is
+// full, a storage.local write of this flag rejects with QuotaExceededError and
+// the switch gets stuck at its previous value. storage.sync has an independent
+// quota, so the tiny on/off flag is always writable and readable.
+const ENABLED_STORAGE_KEY = "sourceMapHunter:enabled";
 
 async function restoreDomainFilter() {
   try {
@@ -138,8 +146,39 @@ function matchesDomainFilter(item, terms) {
   );
 }
 
+// IDs of the maps the hardcoded-data scan should target: the maps matching the
+// active domain filter, or all maps when no filter is set.
+function getScanTargetIds() {
+  const maps = (currentSummary && currentSummary.maps) || [];
+  const terms = getDomainFilterTerms();
+  return maps
+    .filter((item) => matchesDomainFilter(item, terms))
+    .map((item) => item.id);
+}
+
+// The scan button is disabled only when a domain filter is active but matches
+// no source maps. With no filter active it keeps its normal "scan all" job.
+function updateScanButtonState() {
+  if (scanInProgress) {
+    return;
+  }
+
+  const terms = getDomainFilterTerms();
+  const filterActive = terms.length > 0;
+  const matchCount = getScanTargetIds().length;
+  const disable = filterActive && matchCount === 0;
+
+  scanBtn.disabled = disable;
+  scanBtn.title = disable
+    ? "No source maps match this domain filter"
+    : filterActive
+      ? `Search the ${matchCount} source map${matchCount === 1 ? "" : "s"} matching this domain filter`
+      : "Search all discovered source maps for hardcoded data";
+}
+
 function renderSummary(summary) {
   currentSummary = summary;
+  updateScanButtonState();
   const maps = summary.maps || [];
   const terms = getDomainFilterTerms();
   const visibleMaps = maps.filter((item) => matchesDomainFilter(item, terms));
@@ -396,8 +435,21 @@ function applyEnabledState(isEnabled) {
 }
 
 async function loadEnabled() {
-  const response = await browser.runtime.sendMessage({ type: "getEnabled" });
-  const isEnabled = !response || response.enabled !== false;
+  // Read the persisted state directly from storage.sync — the single source of
+  // truth for the switch (the toggle handler writes it). This stays correct
+  // regardless of the background event page's lifecycle, and is never blocked
+  // by the maps blob in storage.local. Default to On only when never set.
+  let isEnabled = true;
+
+  try {
+    const data = await browser.storage.sync.get(ENABLED_STORAGE_KEY);
+    if (typeof data[ENABLED_STORAGE_KEY] === "boolean") {
+      isEnabled = data[ENABLED_STORAGE_KEY];
+    }
+  } catch (error) {
+    console.error("Unable to load enabled state:", error);
+  }
+
   applyEnabledState(isEnabled);
   return isEnabled;
 }
@@ -406,10 +458,16 @@ enabledToggle.addEventListener("change", async () => {
   const next = enabledToggle.checked;
   applyEnabledState(next);
 
+  // Persist to storage.sync directly — NOT by messaging the background (a
+  // runtime message can be dropped if the popup closes right after toggling)
+  // and NOT to storage.local (which the maps blob can fill, making this write
+  // fail with QuotaExceededError). A storage write is dispatched to the parent
+  // process immediately, so it survives the popup closing. The background
+  // watches this key via storage.onChanged and updates its in-memory gate.
   try {
-    await browser.runtime.sendMessage({ type: "setEnabled", enabled: next });
+    await browser.storage.sync.set({ [ENABLED_STORAGE_KEY]: next });
   } catch (error) {
-    console.error("Unable to update enabled state:", error);
+    console.error("Unable to save enabled state:", error);
   }
 
   if (next) {
@@ -452,13 +510,22 @@ clearBtn.addEventListener("click", async () => {
   await loadSummary();
 });
 
-browser.runtime.onMessage.addListener((message) => {
-  if (!message || typeof message !== "object") {
+// Reflect the switch if the enabled state is changed anywhere else (another
+// popup instance, another synced device, devtools editing storage). storage.sync
+// is the single source of truth for the switch, so we watch it directly.
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync" || !changes[ENABLED_STORAGE_KEY]) {
     return;
   }
 
-  if (message.type === "enabledChanged") {
-    applyEnabledState(message.enabled !== false);
+  const next = changes[ENABLED_STORAGE_KEY].newValue;
+  if (typeof next === "boolean" && next !== extensionEnabled) {
+    applyEnabledState(next);
+  }
+});
+
+browser.runtime.onMessage.addListener((message) => {
+  if (!message || typeof message !== "object") {
     return;
   }
 
@@ -470,14 +537,28 @@ browser.runtime.onMessage.addListener((message) => {
 });
 
 scanBtn.addEventListener("click", async () => {
+  const filterActive = getDomainFilterTerms().length > 0;
+  // Only restrict the scan when a filter is active; otherwise leave mapIds
+  // undefined so the background scans every discovered map (normal behavior).
+  const mapIds = filterActive ? getScanTargetIds() : undefined;
+
+  if (filterActive && mapIds.length === 0) {
+    // The button is disabled in this state, but guard anyway.
+    return;
+  }
+
+  scanInProgress = true;
   scanBtn.disabled = true;
   scanBtn.textContent = "Scanning…";
   scanStatusEl.hidden = false;
-  scanStatusEl.textContent = "Scanning all discovered source maps…";
+  scanStatusEl.textContent = filterActive
+    ? `Scanning ${mapIds.length} source map${mapIds.length === 1 ? "" : "s"} matching the domain filter…`
+    : "Scanning all discovered source maps…";
 
   try {
     const response = await browser.runtime.sendMessage({
       type: "scanHardcoded",
+      mapIds,
     });
 
     if (!response || !response.ok) {
@@ -490,17 +571,19 @@ scanBtn.addEventListener("click", async () => {
 
     const data = response.data || {};
     const scanned = data.scannedMaps || 0;
+    const scope = filterActive ? " (filtered)" : "";
 
     scanStatusEl.textContent = data.flaggedMaps
-      ? `Flagged ${data.flaggedMaps} of ${scanned} source map${scanned === 1 ? "" : "s"} (${data.totalFindings} match${data.totalFindings === 1 ? "" : "es"}).`
-      : `No hardcoded data found across ${scanned} source map${scanned === 1 ? "" : "s"}.`;
+      ? `Flagged ${data.flaggedMaps} of ${scanned} source map${scanned === 1 ? "" : "s"}${scope} (${data.totalFindings} match${data.totalFindings === 1 ? "" : "es"}).`
+      : `No hardcoded data found across ${scanned} source map${scanned === 1 ? "" : "s"}${scope}.`;
   } catch (error) {
     console.error(error);
     scanStatusEl.hidden = false;
     scanStatusEl.textContent = `Scan failed: ${error.message}`;
   } finally {
-    scanBtn.disabled = false;
+    scanInProgress = false;
     scanBtn.textContent = SCAN_BUTTON_LABEL;
+    updateScanButtonState();
   }
 });
 

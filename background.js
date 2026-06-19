@@ -121,8 +121,11 @@ async function clearAllMaps() {
 }
 
 async function loadEnabled() {
+  // The on/off flag lives in storage.SYNC, isolated from the large source-map
+  // blob in storage.local. If local hits its quota, writes of this flag must
+  // still succeed — so the popup persists it to sync and we read it from sync.
   try {
-    const data = await browser.storage.local.get(ENABLED_KEY);
+    const data = await browser.storage.sync.get(ENABLED_KEY);
     if (typeof data[ENABLED_KEY] === "boolean") {
       enabled = data[ENABLED_KEY];
     }
@@ -135,7 +138,9 @@ async function loadEnabled() {
 
 async function setEnabled(nextEnabled) {
   enabled = Boolean(nextEnabled);
-  await browser.storage.local.set({ [ENABLED_KEY]: enabled });
+  // Persist to sync (see loadEnabled) so the flag is never blocked by the
+  // storage.local maps quota.
+  await browser.storage.sync.set({ [ENABLED_KEY]: enabled });
   await updateBadge();
 
   try {
@@ -842,16 +847,27 @@ function scanRecordForHardcoded(record) {
   return findings;
 }
 
-async function scanAllForHardcoded() {
+async function scanAllForHardcoded(mapIds) {
   await loadMaps();
 
+  // When the popup passes mapIds (a domain filter is active), scan only those
+  // records. Otherwise scan every discovered map.
+  const idFilter =
+    Array.isArray(mapIds) && mapIds.length > 0 ? new Set(mapIds) : null;
+
+  let scannedMaps = 0;
   let flaggedMaps = 0;
   let totalFindings = 0;
 
   for (const record of MAPS.values()) {
+    if (idFilter && !idFilter.has(record.id)) {
+      continue;
+    }
+
     const findings = scanRecordForHardcoded(record);
     record.hardcoded = findings;
     record.hardcodedScannedAt = nowIso();
+    scannedMaps += 1;
 
     if (findings.length > 0) {
       flaggedMaps += 1;
@@ -862,7 +878,7 @@ async function scanAllForHardcoded() {
   await saveMaps();
 
   return {
-    scannedMaps: MAPS.size,
+    scannedMaps,
     flaggedMaps,
     totalFindings,
     rules: (globalThis.SourceMapHunterSecretRules || []).length,
@@ -976,7 +992,7 @@ browser.runtime.onInstalled.addListener(async () => {
 // (e.g. directly through storage), so the request listeners never act on a
 // stale switch state.
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes[ENABLED_KEY]) {
+  if (area === "sync" && changes[ENABLED_KEY]) {
     const next = changes[ENABLED_KEY].newValue;
     if (typeof next === "boolean") {
       enabled = next;
@@ -1027,7 +1043,10 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === "scanHardcoded") {
-    return scanAllForHardcoded().then((data) => ({ ok: true, data }));
+    return scanAllForHardcoded(message.mapIds).then((data) => ({
+      ok: true,
+      data,
+    }));
   }
 
   return Promise.resolve({ ok: false, error: "Unknown message type" });
