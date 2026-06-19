@@ -49,12 +49,10 @@ Source maps can expose original frontend source code, routes, comments, internal
 - Basic syntax highlighting for JavaScript-like files.
 - Supports downloading reconstructed sources as a ZIP file.
 - [v.1.1.0] Supports domain filtering.
-- [v1.2.0] Supports search using plain text or regex
-- [v1.3] 1) Better code highlighting (same as VS Code!), 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!
-- [v1.3.1] add a switch to enable and disable the extension
-- No external dependencies.
-- No framework.
-- No remote telemetry.
+- [v1.2.0] Supports search using plain text or regex.
+- [v1.3] 1) Better code highlighting (same as VS Code!), 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!.
+- [v1.3.1] Switch to enable and disable the extension
+- [v1.3.2] Less buggy switch to enable and disable the extension, better functionality for searching for hard coded information
 
 ---
 
