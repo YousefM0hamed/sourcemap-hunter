@@ -299,12 +299,6 @@ function renderSummary(summary) {
           : finding.sourcePath || "unknown file";
         row.appendChild(createElement("span", "finding-loc", location));
 
-        if (finding.evidence) {
-          row.appendChild(
-            createElement("code", "finding-evidence", finding.evidence),
-          );
-        }
-
         findingsWrap.appendChild(row);
       }
 

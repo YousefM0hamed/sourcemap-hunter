@@ -253,17 +253,32 @@
     const used = new Set();
     const files = [];
 
+    // The "Search sourcemaps for hardcoded data" button stores its results on
+    // record.hardcoded (an array of { ruleName, sourcePath, line, evidence }).
+    // When the button was never clicked, record.hardcoded is undefined — which
+    // is how we tell "not searched" apart from "searched, nothing found".
+    const searched = Array.isArray(record.hardcoded);
+    const hardcoded = searched ? record.hardcoded : [];
+
+    const secret_hits = {
+      searched,
+      found: hardcoded.length > 0,
+      count: hardcoded.length,
+      hits: hardcoded.map((finding) => ({
+        format: finding.ruleName,
+        line: finding.line,
+        sourcePath: finding.sourcePath,
+        evidence: finding.evidence,
+      })),
+    };
+
     const report = {
       mapUrl: record.mapUrl,
-      finalUrl: record.finalUrl,
-      pageUrl: record.pageUrl,
       discoveredBy: record.discoveredBy || [],
-      scriptUrls: record.scriptUrls || [],
       version: record.version,
       sourceCount: record.sourceCount,
       embeddedSourceCount: record.embeddedSourceCount,
-      firstSeen: record.firstSeen,
-      lastSeen: record.lastSeen,
+      secret_hits,
     };
 
     files.push({
