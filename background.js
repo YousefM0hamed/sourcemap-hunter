@@ -929,6 +929,34 @@ async function getMapById(mapId) {
   return null;
 }
 
+// Return full records (including reconstructed sources) for the "search all
+// source maps" tab. When mapIds is a non-empty array, only those maps are
+// returned (the domain-filtered subset the popup computed); otherwise every
+// discovered map is returned. Mirrors the id-filter convention used by
+// scanAllForHardcoded so the popup can pass the same target list.
+async function getMapsByIds(mapIds) {
+  await loadMaps();
+
+  const idFilter =
+    Array.isArray(mapIds) && mapIds.length > 0 ? new Set(mapIds) : null;
+
+  const records = [];
+
+  for (const record of MAPS.values()) {
+    if (idFilter && !idFilter.has(record.id)) {
+      continue;
+    }
+
+    records.push({
+      ...record,
+      discoveredBy: Array.from(record.discoveredBy || []),
+      scriptUrls: Array.from(record.scriptUrls || []),
+    });
+  }
+
+  return records;
+}
+
 async function downloadMapZip(mapId) {
   const record = await getMapById(mapId);
 
@@ -1026,6 +1054,13 @@ browser.runtime.onMessage.addListener((message) => {
       ok: Boolean(data),
       data,
       error: data ? "" : "Source map not found",
+    }));
+  }
+
+  if (message.type === "getMaps") {
+    return getMapsByIds(message.mapIds).then((data) => ({
+      ok: true,
+      data,
     }));
   }
 

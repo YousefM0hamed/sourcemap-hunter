@@ -19,6 +19,7 @@ const clearFilterBtn = document.getElementById("clearFilter");
 const filterStatusEl = document.getElementById("filterStatus");
 const scanBtn = document.getElementById("scanHardcoded");
 const scanStatusEl = document.getElementById("scanStatus");
+const searchAllBtn = document.getElementById("searchAll");
 const SCAN_BUTTON_LABEL = "Search source maps for hardcoded data";
 const DOMAIN_FILTER_STORAGE_KEY = "popupDomainFilter";
 // Must match ENABLED_KEY in background.js. Stored in storage.SYNC (not local)
@@ -176,9 +177,32 @@ function updateScanButtonState() {
       : "Search all discovered source maps for hardcoded data";
 }
 
+// The "Search all sourcemaps" button opens a single Code-search tab spanning
+// every source map in the current view (the domain-filtered subset, or all
+// maps when no filter is set). It only makes sense for 2+ maps: with 0 matches
+// there is nothing to search, and with exactly 1 match the per-map "Code
+// search" button already covers it. So the button is enabled only when the
+// match count is 2 or more, regardless of whether a domain filter is active.
+function updateSearchAllButtonState() {
+  const terms = getDomainFilterTerms();
+  const filterActive = terms.length > 0;
+  const matchCount = getScanTargetIds().length;
+  const disable = matchCount < 2;
+
+  searchAllBtn.disabled = disable;
+  searchAllBtn.title = disable
+    ? filterActive && matchCount === 0
+      ? "No source maps match this domain filter"
+      : "Searching across source maps needs at least 2 maps; use a single map's “Code search” instead"
+    : filterActive
+      ? `Search across the ${matchCount} source maps matching this domain filter`
+      : `Search across all ${matchCount} discovered source maps`;
+}
+
 function renderSummary(summary) {
   currentSummary = summary;
   updateScanButtonState();
+  updateSearchAllButtonState();
   const maps = summary.maps || [];
   const terms = getDomainFilterTerms();
   const visibleMaps = maps.filter((item) => matchesDomainFilter(item, terms));
@@ -579,6 +603,30 @@ scanBtn.addEventListener("click", async () => {
     scanBtn.textContent = SCAN_BUTTON_LABEL;
     updateScanButtonState();
   }
+});
+
+searchAllBtn.addEventListener("click", () => {
+  // The button is disabled unless 2+ maps are in view, but guard anyway.
+  const targetIds = getScanTargetIds();
+  if (targetIds.length < 2) {
+    return;
+  }
+
+  const filterActive = getDomainFilterTerms().length > 0;
+  const params = new URLSearchParams();
+  params.set("tabId", String(activeTabId ?? 0));
+  params.set("all", "1");
+
+  // Only pin the map list when a domain filter is active; with no filter the
+  // search tab loads every discovered map (matching the scan button's "scan
+  // all" convention of leaving the target list unset).
+  if (filterActive) {
+    params.set("mapIds", targetIds.join(","));
+  }
+
+  browser.tabs.create({
+    url: browser.runtime.getURL(`search/search.html?${params.toString()}`),
+  });
 });
 
 document.addEventListener("DOMContentLoaded", () => {

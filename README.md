@@ -54,6 +54,7 @@ Source maps can expose original frontend source code, routes, comments, internal
 - [v1.3.1] Switch to enable and disable the extension.
 - [v1.3.2] Less buggy switch to enable and disable the extension, better functionality for searching for hard-coded information.
 - [v1.3.3] Updating JSON report structure for more useful information.
+- [v1.4] A "Search all sourcemaps" button that runs a single plain-text/regex code search across every discovered source map at once.
 
 ---
 
