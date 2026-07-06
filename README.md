@@ -42,7 +42,7 @@ Source maps can expose original frontend source code, routes, comments, internal
   - `version`
   - `sources`
   - `mappings`
-- Extracts embedded original source files from `sourcesContent`.
+- Extracts embedded source files from `sourcesContent`.
 - Shows a red browser action badge with the number of confirmed source maps found on the current tab.
 - Popup UI lists discovered source map URLs.
 - Viewer page displays reconstructed source files in a clean, readable interface.
@@ -53,9 +53,9 @@ Source maps can expose original frontend source code, routes, comments, internal
 - [v1.3] 1) Better code highlighting (same as VS Code!), 2) a button to scan all sourcemaps for 106 types of hardcoded data, 4) bug fixes, and better and cleaner code overall!.
 - [v1.3.1] Switch to enable and disable the extension.
 - [v1.3.2] Less buggy switch to enable and disable the extension, better functionality for searching for hard-coded information.
-- [v1.3.3] Updating JSON report structure for more useful information.
+- [v1.3.3] Updated JSON report structure for more useful information.
 - [v1.4] A "Search all sourcemaps" button that runs a single plain-text/regex code search across every discovered source map at once.
-
+- [v1.5] Updated to show search results in a compact way
 ---
 
 ## How detection works
