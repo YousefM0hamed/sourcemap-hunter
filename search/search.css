@@ -149,6 +149,85 @@ button.primary {
     padding: 10px;
 }
 
+/* Collapsible per-file group. The <details> keeps the full result width; the
+   <summary> is the clickable file header and the body expands in place. */
+.result-group {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.result-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 13px;
+}
+
+/* Hide the default disclosure triangle and draw our own caret. */
+.result-group-header::-webkit-details-marker {
+    display: none;
+}
+
+.result-group-header::before {
+    content: "▸";
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.15s ease;
+    flex: 0 0 auto;
+}
+
+.result-group[open] > .result-group-header::before {
+    transform: rotate(90deg);
+}
+
+.result-group-header:hover {
+    background: var(--panel-2);
+}
+
+.result-file-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow-wrap: anywhere;
+}
+
+.result-group-count {
+    flex: 0 0 auto;
+    color: var(--text);
+    background: var(--button);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.result-group-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 10px 10px;
+    border-top: 1px solid var(--border);
+}
+
+.result-match-item {
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.result-match-item:first-child {
+    margin-top: 10px;
+}
+
 .result-rule {
     font-weight: 700;
     font-size: 13px;

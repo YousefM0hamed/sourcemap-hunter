@@ -51,6 +51,75 @@ function renderEmpty(message) {
   resultsEl.appendChild(createElement("div", "empty", message));
 }
 
+// Collapse the flat findings list into one entry per source file, preserving
+// the order files first appear in so results stay stable between searches.
+function groupFindingsByFile(findings) {
+  const groups = new Map();
+
+  for (const finding of findings) {
+    const path = finding.sourcePath || "unknown source";
+
+    if (!groups.has(path)) {
+      groups.set(path, { path, findings: [] });
+    }
+
+    groups.get(path).findings.push(finding);
+  }
+
+  return Array.from(groups.values());
+}
+
+function renderMatch(finding) {
+  const item = createElement("div", "result-match-item");
+
+  item.appendChild(
+    createElement("div", "result-rule", finding.ruleName || "Search match"),
+  );
+
+  item.appendChild(
+    createElement(
+      "div",
+      "result-source",
+      `${finding.sourcePath || "unknown source"}:${finding.line || 1}:${finding.column || 1}`,
+    ),
+  );
+
+  item.appendChild(
+    createElement("pre", "result-match", finding.context || finding.match || ""),
+  );
+
+  return item;
+}
+
+// Each file becomes a collapsible <details> drop-down. The <summary> shows the
+// file name plus a match-count badge; clicking it expands, in place and at the
+// same width, to reveal every match for that file.
+function renderFileGroup(group) {
+  const details = createElement("details", "result-group");
+  const summary = createElement("summary", "result-group-header");
+
+  summary.appendChild(createElement("span", "result-file-name", group.path));
+  summary.appendChild(
+    createElement(
+      "span",
+      "result-group-count",
+      `${group.findings.length} match${group.findings.length === 1 ? "" : "es"}`,
+    ),
+  );
+
+  details.appendChild(summary);
+
+  const body = createElement("div", "result-group-body");
+
+  for (const finding of group.findings) {
+    body.appendChild(renderMatch(finding));
+  }
+
+  details.appendChild(body);
+
+  return details;
+}
+
 function renderResults(result) {
   const findings = result.findings || [];
   const stats = result.stats || {};
@@ -63,28 +132,12 @@ function renderResults(result) {
     return;
   }
 
-  statusEl.textContent = `${findings.length} match${findings.length === 1 ? "" : "es"} across ${stats.searchedFiles || sources.length} files${stats.truncated ? " (result limit reached)" : ""}.`;
+  const groups = groupFindingsByFile(findings);
 
-  for (const finding of findings) {
-    const card = createElement("article", "result-card");
+  statusEl.textContent = `${findings.length} match${findings.length === 1 ? "" : "es"} across ${groups.length} file${groups.length === 1 ? "" : "s"} (of ${stats.searchedFiles || sources.length} searched)${stats.truncated ? " (result limit reached)" : ""}.`;
 
-    card.appendChild(
-      createElement("div", "result-rule", finding.ruleName || "Search match"),
-    );
-
-    card.appendChild(
-      createElement(
-        "div",
-        "result-source",
-        `${finding.sourcePath || "unknown source"}:${finding.line || 1}:${finding.column || 1}`,
-      ),
-    );
-
-    card.appendChild(
-      createElement("pre", "result-match", finding.context || finding.match || ""),
-    );
-
-    resultsEl.appendChild(card);
+  for (const group of groups) {
+    resultsEl.appendChild(renderFileGroup(group));
   }
 }
 
