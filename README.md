@@ -56,6 +56,7 @@ Source maps can expose original frontend source code, routes, comments, internal
 - [v1.3.3] Updated JSON report structure for more useful information.
 - [v1.4] A "Search all sourcemaps" button that runs a single plain-text/regex code search across every discovered source map at once.
 - [v1.5] Updated to show search results in a compact way
+- [v1.6] A new button to download all sourcemaps at once
 ---
 
 ## How detection works
