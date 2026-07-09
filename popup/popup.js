@@ -20,7 +20,11 @@ const filterStatusEl = document.getElementById("filterStatus");
 const scanBtn = document.getElementById("scanHardcoded");
 const scanStatusEl = document.getElementById("scanStatus");
 const searchAllBtn = document.getElementById("searchAll");
+const downloadAllBtn = document.getElementById("downloadAll");
+const downloadAllStatusEl = document.getElementById("downloadAllStatus");
 const SCAN_BUTTON_LABEL = "Search source maps for hardcoded data";
+const DOWNLOAD_ALL_BUTTON_LABEL = "Download all sourcemaps";
+let downloadAllInProgress = false;
 const DOMAIN_FILTER_STORAGE_KEY = "popupDomainFilter";
 // Must match ENABLED_KEY in background.js. Stored in storage.SYNC (not local)
 // on purpose: storage.local holds the large reconstructed source-map blob
@@ -199,10 +203,38 @@ function updateSearchAllButtonState() {
       : `Search across all ${matchCount} discovered source maps`;
 }
 
+// The "Download all sourcemaps" button downloads every source map in the
+// current view (the domain-filtered subset, or all maps when no filter is set)
+// one ZIP after another. Like "Search all sourcemaps" it only makes sense for
+// 2+ maps: with 0 matches there is nothing to download, and with exactly 1
+// match the per-map "Download ZIP" button already covers it. So the button is
+// enabled only when the match count is 2 or more, regardless of whether a
+// domain filter is active. This mirrors the 6 domain-filter cases requested.
+function updateDownloadAllButtonState() {
+  if (downloadAllInProgress) {
+    return;
+  }
+
+  const terms = getDomainFilterTerms();
+  const filterActive = terms.length > 0;
+  const matchCount = getScanTargetIds().length;
+  const disable = matchCount < 2;
+
+  downloadAllBtn.disabled = disable;
+  downloadAllBtn.title = disable
+    ? filterActive && matchCount === 0
+      ? "No source maps match this domain filter"
+      : "Downloading needs at least 2 maps; use a single map's “Download ZIP” instead"
+    : filterActive
+      ? `Download the ${matchCount} source maps matching this domain filter`
+      : `Download all ${matchCount} discovered source maps`;
+}
+
 function renderSummary(summary) {
   currentSummary = summary;
   updateScanButtonState();
   updateSearchAllButtonState();
+  updateDownloadAllButtonState();
   const maps = summary.maps || [];
   const terms = getDomainFilterTerms();
   const visibleMaps = maps.filter((item) => matchesDomainFilter(item, terms));
@@ -627,6 +659,59 @@ searchAllBtn.addEventListener("click", () => {
   browser.tabs.create({
     url: browser.runtime.getURL(`search/search.html?${params.toString()}`),
   });
+});
+
+downloadAllBtn.addEventListener("click", async () => {
+  // Snapshot the currently visible map ids (filtered subset, or all maps when
+  // no filter). The button is disabled unless 2+ maps are in view, but guard
+  // anyway in case the state changed between render and click.
+  const targetIds = getScanTargetIds();
+  if (targetIds.length < 2) {
+    return;
+  }
+
+  const filterActive = getDomainFilterTerms().length > 0;
+
+  downloadAllInProgress = true;
+  downloadAllBtn.disabled = true;
+  downloadAllBtn.textContent = "Downloading…";
+  downloadAllStatusEl.hidden = false;
+  downloadAllStatusEl.textContent = `Downloading ${targetIds.length} source maps…`;
+
+  // The whole loop runs in the background script, NOT here: with saveAs the
+  // first download dialog steals focus and Firefox destroys the popup, aborting
+  // any loop driven from popup.js after a single file. The background survives
+  // the popup closing and saves each ZIP straight to the Downloads folder.
+  try {
+    const response = await browser.runtime.sendMessage({
+      type: "downloadMapsZip",
+      tabId: activeTabId,
+      mapIds: targetIds,
+    });
+
+    if (!response || !response.ok) {
+      throw new Error(
+        response && response.error ? response.error : "Download failed",
+      );
+    }
+
+    const data = response.data || {};
+    const total = data.total || targetIds.length;
+    const completed = data.completed || 0;
+    const failed = data.failed || 0;
+    const scope = filterActive ? " (filtered)" : "";
+
+    downloadAllStatusEl.textContent = failed
+      ? `Downloaded ${completed} of ${total} source map${total === 1 ? "" : "s"}${scope}; ${failed} failed.`
+      : `Downloaded all ${completed} source map${completed === 1 ? "" : "s"}${scope}.`;
+  } catch (error) {
+    console.error(error);
+    downloadAllStatusEl.textContent = `Download failed: ${error.message}`;
+  } finally {
+    downloadAllInProgress = false;
+    downloadAllBtn.textContent = DOWNLOAD_ALL_BUTTON_LABEL;
+    updateDownloadAllButtonState();
+  }
 });
 
 document.addEventListener("DOMContentLoaded", () => {

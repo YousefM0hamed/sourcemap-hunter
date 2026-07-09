@@ -957,7 +957,7 @@ async function getMapsByIds(mapIds) {
   return records;
 }
 
-async function downloadMapZip(mapId) {
+async function downloadMapZip(mapId, options = {}) {
   const record = await getMapById(mapId);
 
   if (!record) {
@@ -971,7 +971,37 @@ async function downloadMapZip(mapId) {
     throw new Error("ZIP downloader is unavailable");
   }
 
-  await globalThis.SourceMapHunterZip.downloadMapAsZip(record);
+  await globalThis.SourceMapHunterZip.downloadMapAsZip(record, options);
+}
+
+// Download several maps' ZIPs, one after another, from the background context.
+// This runs here (not in the popup) because the popup is destroyed the moment
+// the first download dialog/action steals focus, which would abort a loop
+// driven from popup.js after a single file. mapIds is the popup's visible
+// subset (domain-filtered, or all maps). Each file saves straight to the
+// Downloads folder (saveAs:false) so there is no per-file prompt.
+async function downloadMapsZip(mapIds) {
+  const ids = Array.isArray(mapIds) ? mapIds.filter(Boolean) : [];
+
+  if (ids.length === 0) {
+    throw new Error("No source maps to download");
+  }
+
+  let completed = 0;
+  let failed = 0;
+  const errors = [];
+
+  for (const mapId of ids) {
+    try {
+      await downloadMapZip(mapId, { saveAs: false });
+      completed += 1;
+    } catch (error) {
+      failed += 1;
+      errors.push(error && error.message ? error.message : "Download failed");
+    }
+  }
+
+  return { total: ids.length, completed, failed, errors };
 }
 
 browser.webRequest.onBeforeRequest.addListener(onMainFrameRequest, {
@@ -1065,8 +1095,17 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === "downloadMapZip") {
-    return downloadMapZip(message.mapId)
+    return downloadMapZip(message.mapId, message.options || {})
       .then(() => ({ ok: true }))
+      .catch((error) => ({
+        ok: false,
+        error: error && error.message ? error.message : "Download failed",
+      }));
+  }
+
+  if (message.type === "downloadMapsZip") {
+    return downloadMapsZip(message.mapIds)
+      .then((data) => ({ ok: true, data }))
       .catch((error) => ({
         ok: false,
         error: error && error.message ? error.message : "Download failed",

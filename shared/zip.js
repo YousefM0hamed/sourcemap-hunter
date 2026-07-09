@@ -319,14 +319,19 @@
     return files;
   }
 
-  async function downloadBlob(blob, filename) {
+  async function downloadBlob(blob, filename, options = {}) {
+    // saveAs defaults to true so the single-map "Download ZIP" flow keeps
+    // prompting for a location. Bulk "Download all" passes saveAs:false so the
+    // files land straight in the Downloads folder without a dialog per file —
+    // a dialog would also steal focus and close the popup mid-loop.
+    const saveAs = options.saveAs !== false;
     const objectUrl = URL.createObjectURL(blob);
 
     try {
       await browser.downloads.download({
         url: objectUrl,
         filename,
-        saveAs: true,
+        saveAs,
         conflictAction: "uniquify",
       });
     } finally {
@@ -334,10 +339,10 @@
     }
   }
 
-  async function downloadMapAsZip(record) {
+  async function downloadMapAsZip(record, options = {}) {
     const files = filesFromMapRecord(record);
     const blob = createZipBlob(files);
-    await downloadBlob(blob, filenameFromMapUrl(record.mapUrl));
+    await downloadBlob(blob, filenameFromMapUrl(record.mapUrl), options);
   }
 
   globalThis.SourceMapHunterZip = {
