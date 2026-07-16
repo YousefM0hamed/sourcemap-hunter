@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Source Map Hunter</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="popup.css" />
+    </head>
+    <body>
+        <header>
+            <div>
+                <h1>Source Map Hunter</h1>
+                <p id="subtitle">Scanning current tab</p>
+            </div>
+            <div class="header-controls">
+                <label
+                    class="switch"
+                    title="Enable or disable Source Map Hunter"
+                >
+                    <input id="enabledToggle" type="checkbox" checked />
+                    <span class="slider"></span>
+                    <span class="switch-label" id="enabledLabel">On</span>
+                </label>
+                <button id="refresh" type="button" title="Refresh">↻</button>
+            </div>
+        </header>
+
+        <main>
+            <section id="summary" class="summary">
+                <div class="count" id="count">0</div>
+                <div>
+                    <strong>confirmed source maps</strong>
+                    <p id="pageUrl">No page data yet.</p>
+                </div>
+            </section>
+
+            <section class="filters" aria-label="Result filters">
+                <label for="domainFilter">Domain filter</label>
+                <div class="filter-row">
+                    <input
+                        id="domainFilter"
+                        type="search"
+                        placeholder="example.com or cdn.example.com"
+                        autocomplete="off"
+                    />
+                    <button id="clearFilter" type="button" disabled>
+                        Clear
+                    </button>
+                </div>
+                <p id="filterStatus">Showing all domains.</p>
+
+                <div class="scan-row">
+                    <button id="scanHardcoded" type="button">
+                        Search source maps for hardcoded data
+                    </button>
+                </div>
+                <p id="scanStatus" class="scan-status" hidden></p>
+
+                <div class="scan-row">
+                    <button id="searchAll" type="button">
+                        Search all sourcemaps
+                    </button>
+                </div>
+
+                <div class="scan-row">
+                    <button id="downloadAll" type="button">
+                        Download all sourcemaps
+                    </button>
+                </div>
+                <p id="downloadAllStatus" class="scan-status" hidden></p>
+            </section>
+
+            <section id="empty" class="empty">
+                No confirmed JavaScript source maps detected yet.
+            </section>
+
+            <section id="list" class="list" hidden></section>
+        </main>
+
+        <footer>
+            <button id="clear" type="button">Clear all results</button>
+        </footer>
+
+        <script src="../shared/compat.js"></script>
+        <script src="popup.js"></script>
+    </body>
+</html>

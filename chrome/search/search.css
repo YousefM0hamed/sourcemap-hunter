@@ -1,0 +1,285 @@
+:root {
+    color-scheme: light dark;
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #172033;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #374151;
+    --accent: #f43f5e;
+    --accent-2: #38bdf8;
+    --button: #243044;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+header {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+h1 {
+    margin: 0;
+    font-size: 18px;
+}
+
+#mapUrl {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 90vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+main {
+    padding: 16px;
+}
+
+.search-panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+
+.search-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+}
+
+input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--accent-2);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.checkbox-label input {
+    width: auto;
+}
+
+button {
+    border: 1px solid var(--border);
+    background: var(--button);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--accent-2);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.status {
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 12px;
+    background: var(--panel-2);
+    border-top: 1px solid var(--border);
+}
+
+.results {
+    display: grid;
+    gap: 10px;
+}
+
+.result-card {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+/* Collapsible per-file group. The <details> keeps the full result width; the
+   <summary> is the clickable file header and the body expands in place. */
+.result-group {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.result-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 13px;
+}
+
+/* Hide the default disclosure triangle and draw our own caret. */
+.result-group-header::-webkit-details-marker {
+    display: none;
+}
+
+.result-group-header::before {
+    content: "▸";
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.15s ease;
+    flex: 0 0 auto;
+}
+
+.result-group[open] > .result-group-header::before {
+    transform: rotate(90deg);
+}
+
+.result-group-header:hover {
+    background: var(--panel-2);
+}
+
+.result-file-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow-wrap: anywhere;
+}
+
+.result-group-count {
+    flex: 0 0 auto;
+    color: var(--text);
+    background: var(--button);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.result-group-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 10px 10px;
+    border-top: 1px solid var(--border);
+}
+
+.result-match-item {
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.result-match-item:first-child {
+    margin-top: 10px;
+}
+
+.result-rule {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.result-source {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    margin-bottom: 8px;
+}
+
+.result-match {
+    margin: 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+}
+
+.empty {
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px 14px;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .search-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .checkbox-label {
+        justify-content: flex-start;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --panel-2: #f1f5f9;
+        --text: #111827;
+        --muted: #64748b;
+        --border: #d1d5db;
+        --button: #f8fafc;
+    }
+}

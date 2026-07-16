@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Source Map Hunter Viewer</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="viewer.css" />
+    </head>
+    <body>
+        <header>
+            <div>
+                <h1>Reconstructed sources</h1>
+                <p id="mapUrl">Loading source map...</p>
+            </div>
+            <div class="header-actions">
+                <button id="downloadCurrent" type="button">
+                    Download current file
+                </button>
+                <button id="downloadZip" type="button" class="primary">
+                    Download ZIP
+                </button>
+            </div>
+        </header>
+
+        <main id="sourcesMain">
+            <aside>
+                <div class="aside-top">
+                    <input
+                        id="filter"
+                        type="search"
+                        placeholder="Filter files"
+                    />
+                    <div id="stats"></div>
+                </div>
+                <nav id="fileList"></nav>
+            </aside>
+
+            <section class="viewer">
+                <div class="filebar">
+                    <div id="currentPath">No file selected</div>
+                    <div id="currentMeta"></div>
+                    <label class="format-toggle" title="Pretty-print minified code (no code is executed)">
+                        <input id="formatToggle" type="checkbox" />
+                        Format
+                    </label>
+                </div>
+                <div id="code" class="code-host">
+                    <div class="code-message">Select a file from the left.</div>
+                </div>
+            </section>
+        </main>
+
+        <script src="../shared/compat.js"></script>
+        <script src="../shared/zip.js"></script>
+        <script src="../shared/beautify.js"></script>
+        <script src="../vendor/shiki/shiki.bundle.js"></script>
+        <script src="viewer.js"></script>
+    </body>
+</html>
