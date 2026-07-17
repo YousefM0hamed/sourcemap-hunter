@@ -1,0 +1,331 @@
+:root {
+    color-scheme: light dark;
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #172033;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #374151;
+    --accent: #f43f5e;
+    --accent-2: #38bdf8;
+    --button: #243044;
+    --code-bg: #060914;
+    --string: #a7f3d0;
+    --comment: #94a3b8;
+    --keyword: #93c5fd;
+    --number: #fcd34d;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+header {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+h1 {
+    margin: 0;
+    font-size: 18px;
+}
+
+#mapUrl {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 68vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+button {
+    border: 1px solid var(--border);
+    background: var(--button);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--accent-2);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+main {
+    height: calc(100vh - 72px);
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+}
+
+aside {
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.aside-top {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--accent-2);
+}
+
+#stats {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+#fileList {
+    min-height: 0;
+    overflow: auto;
+    padding: 8px;
+}
+
+.file-item {
+    width: 100%;
+    text-align: left;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text);
+    display: block;
+    padding: 8px 9px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.file-item:hover {
+    background: var(--panel-2);
+    border-color: var(--border);
+}
+
+.file-item.active {
+    background: var(--panel-2);
+    border-color: var(--accent-2);
+}
+
+.viewer {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--code-bg);
+    overflow: hidden;
+}
+
+.filebar {
+    min-height: 48px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel-2);
+    flex-shrink: 0;
+}
+
+.filebar > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#currentMeta {
+    flex: 0 0 auto;
+}
+
+.format-toggle {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.format-toggle input {
+    margin: 0;
+    cursor: pointer;
+}
+}
+
+#currentPath {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+#currentMeta {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* Code host: scroll container that holds Shiki's <pre>. Background matches the
+   GitHub themes so the gutter/empty area stays seamless before and after render. */
+.code-host {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    background: #ffffff;
+}
+
+.code-host .shiki {
+    margin: 0;
+    padding: 14px 18px 18px 8px;
+    min-height: 100%;
+    background: transparent !important;
+    font-family:
+        ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+        monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 2;
+}
+
+/* defaultColor:false leaves color to CSS so we can swap light/dark by scheme. */
+.code-host .shiki,
+.code-host .shiki span {
+    color: var(--shiki-light);
+}
+
+/* Line-number gutter via a CSS counter on each Shiki line span. The numbers are
+   generated content (user-select:none), so copying code never grabs them. */
+.code-host .shiki code {
+    counter-reset: smh-line;
+    display: block;
+    /* Word-wrap: long lines wrap to the next line instead of producing a
+       horizontal scrollbar. The Shiki line spans still keep their number
+       gutter via ::before; wrapped continuation lines indent naturally. */
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.code-host .shiki .line::before {
+    counter-increment: smh-line;
+    content: counter(smh-line);
+    display: inline-block;
+    min-width: 2.5em;
+    margin-right: 1.4em;
+    padding-right: 0.7em;
+    text-align: right;
+    color: var(--muted);
+    border-right: 1px solid var(--border);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Plain fallback (huge files / Shiki unavailable) reuses the same structure so
+   the gutter still works; it just has no token colors. */
+.code-host .shiki-plain {
+    color: var(--text);
+}
+
+.code-message {
+    padding: 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+    .code-host {
+        background: #0d1117;
+    }
+
+    .code-host .shiki,
+    .code-host .shiki span {
+        color: var(--shiki-dark);
+    }
+}
+
+.empty {
+    color: var(--muted);
+    padding: 16px;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --panel-2: #f1f5f9;
+        --text: #111827;
+        --muted: #64748b;
+        --border: #d1d5db;
+        --button: #f8fafc;
+        --code-bg: #ffffff;
+        --string: #047857;
+        --comment: #64748b;
+        --keyword: #1d4ed8;
+        --number: #b45309;
+    }
+}
